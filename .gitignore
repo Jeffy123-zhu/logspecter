@@ -1,0 +1,24 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.idea/
+.vscode/
+*.log
+*.log.gz
+bench/
+scratch/
+.logspecter-baseline.json
+
+# 但示例日志需要入库
+!examples/*.log
+!examples/*.jsonl

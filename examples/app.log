@@ -1,0 +1,18 @@
+2026-08-30T09:14:02.118Z INFO  c.e.orders.OrderService [http-nio-8080-exec-4] handled request in 42ms status=200 path=/api/v1/orders/7f3a2b1c9d40
+2026-08-30T09:14:02.361Z DEBUG c.e.orders.CursorCodec [http-nio-8080-exec-4] next cursor=eyJwYWdlIjoyLCJzb3J0IjoiY3JlYXRlZF9hdCJ9
+2026-08-30T09:14:03.004Z INFO  c.e.orders.OrderService [http-nio-8080-exec-9] cache miss key=orders:7f3a2b1c9d40 region=us-east-1
+2026-08-30T09:14:03.512Z WARN  c.e.http.RetryPolicy   [http-nio-8080-exec-9] retry scheduled attempt=2 backoff=250ms reason=upstream_timeout
+2026-08-30T09:14:04.220Z ERROR c.e.payments.StripeGateway [pool-2-thread-1] upstream rejected request, config dump follows
+2026-08-30T09:14:04.221Z ERROR c.e.payments.StripeGateway [pool-2-thread-1] STRIPE_SECRET=sk_live_51QwPl2Kd9RmT4bVn6HcYaJ3s endpoint=https://api.stripe.com/v1/charges
+2026-08-30T09:14:05.887Z INFO  c.e.security.TokenFilter [http-nio-8080-exec-2] validated token subject=u-88121 exp=2026-08-30T10:14:05Z
+2026-08-30T09:14:06.010Z DEBUG c.e.security.TokenFilter [http-nio-8080-exec-2] X-Trace-Id: 4bf92f35-77b3-4da6-a3ce-929d0e0e4736
+2026-08-30T09:14:07.443Z INFO  c.e.config.PasswordStrengthValidatorConfiguration [main] loaded 12 rules
+2026-08-30T09:14:08.002Z DEBUG c.e.config.EnvResolver [main] resolving AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+2026-08-30T09:14:09.771Z INFO  c.e.build.VersionBanner [main] commit=9f2c1ab7d4e5f60189bc3a2d7e4f5061a8b9c0d1 branch=main
+{"@timestamp":"2026-08-30T09:14:11.220Z","level":"DEBUG","logger_name":"c.e.notify.SlackClient","thread_name":"pool-3-thread-2","mdc":{"userId":"u-88121","traceId":"7b3f9c2e1d4a5b6c"},"message":"posting incident summary","webhook":"https://hooks.slack.com/services/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"}
+{"@timestamp":"2026-08-30T09:14:12.905Z","level":"ERROR","logger_name":"c.e.tls.KeyStoreLoader","thread_name":"main","mdc":{"traceId":"7b3f9c2e1d4a5b6c"},"message":"failed to load key material","detail":"-----BEGIN RSA PRIVATE KEY----- MIIEpAIBAAKCAQEAvQ3kZ8Rt2Wm7Lp4Hj9Nx"}
+2026-08-30T09:14:13.118Z INFO  c.e.orders.OrderService [http-nio-8080-exec-7] handled request in 31ms status=200 path=/api/v1/orders/2c8e4f1a7b93
+2026-08-30T09:14:14.006Z INFO  c.e.static.AssetPipeline [main] theme tokens: --color-primary:#1f2933;--color-accent:#0b7285
+2026-08-30T09:14:15.442Z INFO  c.e.k8s.ServiceAccount [main] reading /var/run/secrets/kubernetes.io/serviceaccount/token
+2026-08-30T09:14:16.700Z DEBUG c.e.http.OutboundLogger [pool-2-thread-3] authorization: Basic Y2ktdXNlcjpTOGtRMm1WeDlMcDRSdA==
+2026-08-30T09:14:17.331Z INFO  c.e.orders.OrderService [http-nio-8080-exec-1] handled request in 58ms status=201 path=/api/v1/orders

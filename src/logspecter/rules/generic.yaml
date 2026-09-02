@@ -1,0 +1,148 @@
+﻿version: 1
+pack: generic
+
+# 通用规则是召回率的来源，也是误报的主要来源。这里的策略是：
+#   1. 赋值型规则（key = value）依赖关键词本身作为强上下文，熵门限适中；
+#   2. 结构化键规则（json_keys）只在敏感 JSON 键上生效，是云日志场景的主力；
+#   3. 纯高熵规则默认关闭，通过 --aggressive 或 --enable-rule 显式开启。
+
+rules:
+  - id: generic-secret-assignment
+    name: Generic Secret Assignment
+    description: >-
+      形如 password=... / api_key: ... 的键值赋值。占位符、示例值、自然语言
+      由熵值层统一拦截。
+    severity: medium
+    confidence: low
+    pattern: '(?:pass(?:word|wd|phrase)?|secret|token|api[_\-]?key|access[_\-]?key|auth[_\-]?token|credentials?|client[_\-]?secret|private[_\-]?key|encryption[_\-]?key)["'']?\s*[:=]\s*["'']?([^\s"'',;}{)\]\\]{10,120})'
+    capture: 1
+    ignore_case: true
+    exclude_pattern: '\A(?:\$\{|%\(|\{\{|<%|\[|:|/|-|@|\*+\Z)'
+    entropy:
+      min_entropy: 3.1
+      min_normalized: 0.48
+      min_length: 10
+      min_charset_coverage: 0.55
+      max_word_likeness: 0.55
+    tags: [generic, assignment]
+
+  - id: authorization-header-bearer
+    name: Authorization Bearer Token
+    description: HTTP Authorization 头被原样写入日志，Bearer 之后即为可重放凭据。
+    severity: high
+    confidence: high
+    pattern: '(?:authorization|proxy-authorization|x-api-key)["'']?\s*[:=]\s*["'']?(?:bearer|token)\s+([A-Za-z0-9_\-.=+/]{20,})'
+    capture: 1
+    ignore_case: true
+    entropy:
+      min_entropy: 3.6
+      min_normalized: 0.52
+      min_length: 20
+      max_length: 8192
+      reject_encoded_text: false
+    tags: [generic, http, header, token]
+
+  - id: authorization-header-basic
+    name: Authorization Basic Credentials
+    description: >-
+      Basic 认证头。其 Base64 解码后必然是 ``user:pass`` 明文，因此本规则
+      显式关闭「解码后是文本则丢弃」的启发式。
+    severity: high
+    confidence: high
+    pattern: '(?:authorization|proxy-authorization)["'']?\s*[:=]\s*["'']?basic\s+([A-Za-z0-9+/]{16,}={0,2})'
+    capture: 1
+    ignore_case: true
+    entropy:
+      min_entropy: 2.6
+      min_normalized: 0.40
+      min_length: 16
+      reject_encoded_text: false
+      max_word_likeness: 0.95
+    tags: [generic, http, header]
+
+  - id: sensitive-json-key-value
+    name: Secret in Sensitive JSON/MDC Key
+    description: >-
+      结构感知层专用规则：只作用于 password / secret / token / authorization /
+      private_key 等敏感键的值上。这是 CloudTrail requestParameters、Logback MDC
+      这类嵌套结构里最有效的检出方式。
+    severity: high
+    confidence: medium
+    pattern: '\A\s*(\S[^\r\n]{7,4096})\s*\Z'
+    capture: 1
+    json_keys:
+      - password
+      - passwd
+      - pwd
+      - passphrase
+      - secret
+      - client_secret
+      - clientsecret
+      - token
+      - accesstoken
+      - access_token
+      - refresh_token
+      - id_token
+      - api_key
+      - apikey
+      - api-key
+      - authorization
+      - auth
+      - credential
+      - credentials
+      - private_key
+      - privatekey
+      - encryption_key
+      - signing_key
+      - session_key
+      - x-api-key
+      - x-auth-token
+    entropy:
+      min_entropy: 3.2
+      min_normalized: 0.50
+      min_length: 8
+      min_charset_coverage: 0.52
+      max_word_likeness: 0.58
+    tags: [generic, structured, mdc]
+
+  - id: generic-high-entropy-token
+    name: Unclassified High-Entropy Token
+    description: >-
+      不匹配任何厂商规则、但熵值接近字符集理论上限的长随机串。召回率高、
+      噪声也高，默认关闭；用 --aggressive 或 --enable-rule generic-high-entropy-token 开启。
+    severity: low
+    confidence: low
+    enabled: false
+    pattern: '\b([A-Za-z0-9+/_\-]{32,120})\b'
+    capture: 1
+    entropy:
+      min_entropy: 4.6
+      min_normalized: 0.76
+      min_length: 32
+      min_charset_coverage: 0.70
+      max_word_likeness: 0.30
+    tags: [generic, entropy-only]
+
+  - id: generic-hex-secret
+    name: Long Hex Secret with Keyword
+    description: >-
+      64/128 位十六进制串（常见于 HMAC 密钥、加密盐），要求邻近出现密钥关键词。
+      正则本身提取不出必现字面量，只能借关键词做预筛；而 key/token 这类关键词在
+      结构化日志里几乎每行都有，等于每行都要跑一遍十六进制正则（实测占单块耗时
+      约 20%）。因此默认关闭，用 --aggressive 或 --enable-rule 开启。
+    severity: medium
+    confidence: medium
+    enabled: false
+    pattern: '\b([0-9a-f]{64}|[0-9a-f]{128})\b'
+    capture: 1
+    ignore_case: true
+    keywords: [key, secret, token, hmac, signature, salt, password, credential]
+    require_keyword: true
+    keyword_window: 64
+    entropy:
+      min_entropy: 3.4
+      min_normalized: 0.85
+      min_length: 64
+      min_charset_coverage: 0.75
+      charsets: [hex]
+    tags: [generic, hex]

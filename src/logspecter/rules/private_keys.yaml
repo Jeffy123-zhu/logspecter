@@ -1,0 +1,67 @@
+version: 1
+pack: private-keys
+
+# 私钥块属于纯结构性证据：只要 PEM 头出现在日志里就是确定性事故，
+# 无需任何熵值校验（``entropy.enabled: false``）。
+
+defaults:
+  severity: critical
+  confidence: high
+  entropy:
+    enabled: false
+
+rules:
+  - id: private-key-pem-header
+    name: PEM Private Key Block
+    description: RSA / DSA / EC / OPENSSH / PKCS#8 私钥 PEM 头。
+    pattern: '(-----BEGIN\s+(?:RSA|DSA|EC|OPENSSH|ENCRYPTED|SSH2 ENCRYPTED)?\s*PRIVATE KEY-----)'
+    capture: 1
+    tags: [private-key, pem, crypto]
+
+  - id: pgp-private-key-block
+    name: PGP Private Key Block
+    pattern: '(-----BEGIN PGP PRIVATE KEY BLOCK-----)'
+    capture: 1
+    tags: [private-key, pgp, crypto]
+
+  - id: putty-private-key
+    name: PuTTY Private Key File
+    pattern: '(PuTTY-User-Key-File-[0-9]+):'
+    capture: 1
+    tags: [private-key, ssh]
+
+  - id: kubeconfig-client-key-data
+    name: Kubeconfig client-key-data
+    description: kubeconfig 中的客户端私钥（Base64 PEM），等同集群访问凭据。
+    severity: critical
+    pattern: 'client-key-data:\s*([A-Za-z0-9+/]{100,}={0,2})'
+    capture: 1
+    entropy:
+      min_entropy: 4.4
+      min_normalized: 0.70
+      min_length: 100
+      max_length: 65536
+      reject_encoded_text: false
+    tags: [private-key, kubernetes]
+
+  - id: pkcs12-keystore-password
+    name: Keystore / Truststore Password
+    severity: high
+    confidence: medium
+    pattern: '(?:keystore|truststore|key_?store)_?(?:pass(?:word)?|pwd)["'']?\s*[:=]\s*["'']?([^\s"'',;}{)\]]{6,64})'
+    capture: 1
+    ignore_case: true
+    entropy:
+      enabled: true
+      min_entropy: 2.6
+      min_normalized: 0.42
+      min_length: 6
+      max_word_likeness: 0.85
+    tags: [private-key, java, keystore]
+
+  - id: ssh-private-key-body
+    name: OpenSSH Private Key Body
+    description: OpenSSH 新格式私钥的 Base64 体（以 b3BlbnNzaC1rZXktdjE 开头）。
+    pattern: '\b(b3BlbnNzaC1rZXktdjE[A-Za-z0-9+/=]{40,})'
+    capture: 1
+    tags: [private-key, ssh, crypto]

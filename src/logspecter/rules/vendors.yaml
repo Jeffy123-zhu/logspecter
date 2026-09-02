@@ -1,0 +1,329 @@
+version: 1
+pack: vendors
+
+# 第三方 SaaS / 平台凭据。绝大多数都有厂商设计的固定前缀（gh*_、xox*-、sk_live_…），
+# 属于高置信度结构性规则；少数无前缀的（Datadog、Twilio）依赖关键词邻近校验。
+
+rules:
+  # ---------------------------------------------------------------- 代码托管
+  - id: github-personal-access-token
+    name: GitHub Token (classic)
+    description: ghp_/gho_/ghu_/ghs_/ghr_ 前缀的 GitHub 令牌。
+    severity: critical
+    confidence: high
+    pattern: '\b(gh[pousr]_[A-Za-z0-9]{36,255})\b'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [github, vcs, credential]
+
+  - id: github-fine-grained-pat
+    name: GitHub Fine-grained PAT
+    severity: critical
+    confidence: high
+    pattern: '\b(github_pat_[0-9a-zA-Z_]{82})\b'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [github, vcs, credential]
+
+  - id: gitlab-personal-access-token
+    name: GitLab Personal Access Token
+    severity: critical
+    confidence: high
+    pattern: '\b(glpat-[0-9A-Za-z_\-]{20,})\b'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [gitlab, vcs, credential]
+
+  - id: gitlab-pipeline-trigger-token
+    name: GitLab Pipeline Trigger Token
+    severity: high
+    confidence: high
+    pattern: '\b(glptt-[0-9a-f]{40})\b'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [gitlab, ci]
+
+  # ---------------------------------------------------------------- 协作 / IM
+  - id: slack-token
+    name: Slack Token
+    severity: critical
+    confidence: high
+    pattern: '\b(xox[abeoprs]-[0-9A-Za-z\-]{10,72})\b'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [slack, chatops]
+
+  - id: slack-incoming-webhook
+    name: Slack Incoming Webhook URL
+    severity: high
+    confidence: high
+    pattern: '(https://hooks\.slack\.com/(?:services|workflows)/[A-Za-z0-9+/]{6,}/[A-Za-z0-9+/]{6,}/[A-Za-z0-9+/]{20,})'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [slack, webhook]
+
+  - id: discord-bot-token
+    name: Discord Bot Token
+    description: >-
+      三段式 Bot Token。首段是把 17~19 位雪花 ID 做 Base64 得到的结果，因此前两个
+      字符只可能落在一个很小的集合里 —— 显式列出这些前缀既提高了精度，也让预筛
+      能提取到字面量（否则该规则只能逐行全量跑正则，实测拖慢一个数量级）。
+    severity: high
+    confidence: medium
+    pattern: '\b((?:MT|MD|MN|Mj|Mz|Mn|ND|NT|Nz|Nj|OD|OT|Oj)[A-Za-z0-9_\-]{21,24}\.[A-Za-z0-9_\-]{6}\.[A-Za-z0-9_\-]{27,38})\b'
+    capture: 1
+    entropy:
+      min_entropy: 4.2
+      min_normalized: 0.66
+      min_length: 59
+      reject_encoded_text: false
+    tags: [discord, chatops]
+
+  - id: telegram-bot-token
+    name: Telegram Bot Token
+    severity: high
+    confidence: high
+    pattern: '(?<![0-9])([0-9]{8,10}:AA[A-Za-z0-9_\-]{32,33})\b'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [telegram, chatops]
+
+  # ---------------------------------------------------------------- 支付 / 通信
+  - id: stripe-live-secret-key
+    name: Stripe Live Secret Key
+    severity: critical
+    confidence: high
+    pattern: '\b((?:sk|rk)_live_[0-9A-Za-z]{20,247})\b'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [stripe, payment]
+
+  - id: stripe-test-secret-key
+    name: Stripe Test Secret Key
+    description: 测试环境密钥，危害有限但仍属凭据外泄，默认以 low 等级记录。
+    severity: low
+    confidence: high
+    pattern: '\b((?:sk|rk)_test_[0-9A-Za-z]{20,247})\b'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [stripe, payment, non-production]
+
+  - id: twilio-api-key-sid
+    name: Twilio API Key SID
+    severity: high
+    confidence: medium
+    pattern: '\b(SK[0-9a-fA-F]{32})\b'
+    capture: 1
+    keywords: [twilio, auth_token, account_sid]
+    require_keyword: true
+    entropy:
+      # 捕获值是「SK 前缀 + 32 位十六进制」的混合形态：字符集会被判定为 base62
+      # （理论上限 5.95 bit），但实际可用符号只有 16+2 种，所以归一化熵与字符集
+      # 覆盖率两个门限都必须按混合形态放宽，精度交给 require_keyword 保证。
+      min_entropy: 3.0
+      min_normalized: 0.50
+      min_length: 34
+      max_length: 34
+      min_charset_coverage: 0.35
+    tags: [twilio, messaging]
+
+  - id: twilio-account-sid
+    name: Twilio Account SID
+    severity: medium
+    confidence: high
+    pattern: '\b(AC[0-9a-fA-F]{32})\b'
+    capture: 1
+    keywords: [twilio, auth_token, account_sid]
+    require_keyword: true
+    entropy:
+      enabled: false
+    tags: [twilio, messaging]
+
+  - id: sendgrid-api-key
+    name: SendGrid API Key
+    severity: critical
+    confidence: high
+    pattern: '\b(SG\.[A-Za-z0-9_\-]{22}\.[A-Za-z0-9_\-]{43})\b'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [sendgrid, email]
+
+  - id: mailgun-api-key
+    name: Mailgun API Key
+    severity: high
+    confidence: high
+    pattern: '\b(key-[0-9a-f]{32})\b'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [mailgun, email]
+
+  # ---------------------------------------------------------------- AI / 包管理
+  - id: openai-api-key
+    name: OpenAI API Key
+    severity: critical
+    confidence: high
+    pattern: '\b(sk-(?:proj|svcacct|admin)-[A-Za-z0-9_\-]{40,})\b'
+    capture: 1
+    entropy:
+      min_entropy: 4.0
+      min_normalized: 0.60
+      min_length: 48
+      reject_encoded_text: false
+    tags: [openai, llm]
+
+  - id: openai-api-key-legacy
+    name: OpenAI API Key (legacy)
+    severity: critical
+    confidence: high
+    pattern: '\b(sk-[A-Za-z0-9]{20}T3BlbkFJ[A-Za-z0-9]{20})\b'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [openai, llm]
+
+  - id: anthropic-api-key
+    name: Anthropic API Key
+    severity: critical
+    confidence: high
+    pattern: '\b(sk-ant-(?:api|admin)[0-9]{2}-[A-Za-z0-9_\-]{80,120})\b'
+    capture: 1
+    entropy:
+      min_entropy: 4.2
+      min_normalized: 0.62
+      min_length: 80
+      reject_encoded_text: false
+    tags: [anthropic, llm]
+
+  - id: huggingface-access-token
+    name: Hugging Face Access Token
+    severity: high
+    confidence: high
+    pattern: '\b(hf_[A-Za-z0-9]{34,40})\b'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [huggingface, llm]
+
+  - id: npm-access-token
+    name: npm Access Token
+    severity: critical
+    confidence: high
+    pattern: '\b(npm_[A-Za-z0-9]{36})\b'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [npm, supply-chain]
+
+  - id: pypi-upload-token
+    name: PyPI Upload Token
+    severity: critical
+    confidence: high
+    pattern: '\b(pypi-AgEIcHlwaS5vcmc[A-Za-z0-9_\-]{50,})\b'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [pypi, supply-chain]
+
+  # ---------------------------------------------------------------- 可观测 / 平台
+  - id: datadog-api-key
+    name: Datadog API / Application Key
+    severity: high
+    confidence: medium
+    pattern: '(?:dd|datadog)[_\-]?(?:api|app|application)[_\-]?key["'']?\s*[:=]\s*["'']?([0-9a-f]{32,40})\b'
+    capture: 1
+    ignore_case: true
+    entropy:
+      # 32 字符十六进制串的经验熵期望约 3.66（有限样本偏差），门限须留足尾部空间，
+      # 精度主要由「dd/datadog + api/app + key」这个强上下文保证。
+      min_entropy: 3.0
+      min_normalized: 0.75
+      min_length: 32
+      min_charset_coverage: 0.55
+      charsets: [hex]
+    tags: [datadog, observability]
+
+  - id: grafana-service-account-token
+    name: Grafana Service Account Token
+    severity: high
+    confidence: high
+    pattern: '\b(glsa_[A-Za-z0-9]{32}_[0-9a-f]{8})\b'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [grafana, observability]
+
+  - id: atlassian-api-token
+    name: Atlassian / Jira API Token
+    severity: high
+    confidence: high
+    pattern: '\b(ATATT3x[A-Za-z0-9_\-=]{150,})\b'
+    capture: 1
+    entropy:
+      min_entropy: 4.2
+      min_normalized: 0.64
+      min_length: 150
+      max_length: 8192
+      reject_encoded_text: false
+    tags: [atlassian, jira]
+
+  - id: terraform-cloud-api-token
+    name: HCP Terraform API Token
+    severity: critical
+    confidence: high
+    pattern: '\b([A-Za-z0-9]{14}\.(?:atlasv1|hcp)\.[A-Za-z0-9_\-]{50,})\b'
+    capture: 1
+    entropy:
+      min_entropy: 4.2
+      min_normalized: 0.62
+      min_length: 60
+      reject_encoded_text: false
+    tags: [terraform, iac]
+
+  - id: shopify-access-token
+    name: Shopify Access Token
+    severity: critical
+    confidence: high
+    pattern: '\b(shp(?:at|ca|pa|ss)_[0-9a-fA-F]{32})\b'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [shopify, commerce]
+
+  - id: dockerhub-personal-access-token
+    name: Docker Hub Personal Access Token
+    severity: high
+    confidence: high
+    pattern: '\b(dckr_pat_[A-Za-z0-9_\-]{20,32})\b'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [docker, supply-chain]
+
+  - id: jwt-compact-token
+    name: JWT (compact serialization)
+    description: >-
+      三段式 JWT。生产日志里大量是普通会话/ID token，因此默认标记为 medium
+      并附上载荷解析结果，由使用方判断是否属于敏感凭据。
+    severity: medium
+    confidence: high
+    pattern: '\b(eyJ[A-Za-z0-9_\-]{8,}\.eyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,})'
+    capture: 1
+    entropy:
+      min_entropy: 4.0
+      min_normalized: 0.60
+      min_length: 40
+      max_length: 8192
+      reject_encoded_text: false
+      max_word_likeness: 0.90
+    tags: [jwt, token, session]

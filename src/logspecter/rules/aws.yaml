@@ -1,0 +1,107 @@
+version: 1
+pack: aws
+
+# AWS 凭据。带固定前缀的标识（AKIA/ASIA…）属于结构性证据，无需熵校验；
+# 40 字符的 Secret Access Key 没有前缀特征，必须靠「关键词邻近 + 熵值」把关。
+
+rules:
+  - id: aws-access-key-id
+    name: AWS Access Key ID
+    description: >-
+      20 位访问密钥标识。**只包含真正的凭据前缀**：AKIA（长期访问密钥）、
+      ASIA（STS 临时密钥）、A3T（旧版访问密钥）。
+      AIDA / AROA / ANPA 等前缀是「唯一资源 ID」而不是凭据 —— 它们出现在每一条
+      CloudTrail 记录的 userIdentity 里，混进来就是稳定的误报源，见
+      aws-principal-unique-id。
+    severity: critical
+    confidence: high
+    pattern: '\b((?:A3T[A-Z0-9]|AKIA|ASIA)[A-Z0-9]{16})\b'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [aws, iam, credential]
+    references:
+      - https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_identifiers.html
+
+  - id: aws-principal-unique-id
+    name: AWS Principal Unique ID
+    description: >-
+      AIDA（IAM 用户）/ AROA（角色）/ ANPA、ANVA、AGPA、APKA、ACCA、ABIA 等
+      唯一资源 ID。**不是凭据**，仅在做资产盘点或身份关联时才有意义；因为它们在
+      CloudTrail 里无处不在，默认关闭。
+    severity: info
+    confidence: high
+    enabled: false
+    pattern: '\b((?:ABIA|ACCA|AGPA|AIDA|AIPA|ANPA|ANVA|APKA|AROA)[A-Z0-9]{16})\b'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [aws, iam, identifier, inventory]
+
+  - id: aws-secret-access-key
+    name: AWS Secret Access Key
+    description: 40 字符 Base64 形态的长期密钥，必须伴随 aws/secret/key 关键词出现。
+    severity: critical
+    confidence: high
+    pattern: '(?:aws)?_?secret_?(?:access)?_?key(?:_?id)?["'']?\s*[:=]\s*["'']?([A-Za-z0-9/+=]{40})(?![A-Za-z0-9/+=])'
+    capture: 1
+    ignore_case: true
+    entropy:
+      min_entropy: 4.2
+      min_normalized: 0.68
+      min_length: 40
+      max_length: 40
+      charsets: [base64, base62]
+    tags: [aws, iam, credential]
+
+  - id: aws-session-token
+    name: AWS Session Token
+    description: STS 临时会话令牌，长度通常在数百字符以上。
+    severity: high
+    confidence: high
+    pattern: '(?:aws_?session_?token|x-amz-security-token|sessiontoken)["'']?\s*[:=]\s*["'']?([A-Za-z0-9/+=]{100,})'
+    capture: 1
+    ignore_case: true
+    entropy:
+      min_entropy: 4.5
+      min_normalized: 0.70
+      min_length: 100
+      max_length: 4096
+      reject_encoded_text: false
+    tags: [aws, sts, credential]
+
+  - id: aws-mws-auth-token
+    name: Amazon MWS Auth Token
+    severity: high
+    confidence: high
+    pattern: '\b(amzn\.mws\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [aws, marketplace]
+
+  - id: aws-sigv4-credential-scope
+    name: AWS SigV4 Authorization Header
+    description: >-
+      日志里出现完整 SigV4 Authorization 头，说明请求签名被原样记录，
+      Credential 字段会暴露 Access Key ID 与凭据作用域。
+    severity: medium
+    confidence: high
+    pattern: 'AWS4-HMAC-SHA256\s+Credential=([A-Z0-9]{16,32}/[0-9]{8}/[a-z0-9-]+/[a-z0-9]+/aws4_request)'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [aws, sigv4, hygiene]
+
+  - id: aws-cognito-identity-pool-secret
+    name: AWS Cognito / Amplify Client Secret
+    severity: high
+    confidence: medium
+    pattern: '(?:cognito|amplify|userpool)[a-z_]{0,20}(?:client_?secret|secret)["'']?\s*[:=]\s*["'']?([a-z0-9]{26,64})'
+    capture: 1
+    ignore_case: true
+    entropy:
+      min_entropy: 3.6
+      min_normalized: 0.62
+      min_length: 26
+    tags: [aws, cognito]

@@ -1,0 +1,94 @@
+version: 1
+pack: gcp
+
+rules:
+  - id: gcp-api-key
+    name: Google Cloud API Key
+    description: AIza 前缀的 39 位 API Key，广泛用于 Maps / Firebase / 各类 Google API。
+    severity: critical
+    confidence: high
+    pattern: '\b(AIza[0-9A-Za-z_\-]{35})\b'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [gcp, google, api-key]
+
+  - id: gcp-oauth-refresh-token
+    name: Google OAuth Refresh Token
+    description: 以 1// 开头的长期刷新令牌，可无限续期换取 access token。
+    severity: critical
+    confidence: high
+    pattern: '\b(1//[0-9A-Za-z_\-]{30,})'
+    capture: 1
+    entropy:
+      min_entropy: 4.0
+      min_normalized: 0.60
+      min_length: 33
+      reject_encoded_text: false
+    tags: [gcp, google, oauth]
+
+  - id: gcp-oauth-client-secret
+    name: Google OAuth Client Secret
+    severity: high
+    confidence: high
+    pattern: '\b(GOCSPX-[0-9A-Za-z_\-]{28})\b'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [gcp, google, oauth]
+
+  - id: gcp-service-account-key-json
+    name: GCP Service Account Key (JSON)
+    description: >-
+      日志中出现 service_account 类型的密钥 JSON。通常意味着完整的服务账号私钥
+      被打印进日志，属于最高危泄露形态。
+    severity: critical
+    confidence: high
+    pattern: '"type"\s*:\s*"(service_account)"'
+    capture: 1
+    keywords: [private_key, private_key_id, client_email]
+    require_keyword: true
+    keyword_window: 512
+    entropy:
+      enabled: false
+    tags: [gcp, google, service-account]
+
+  - id: gcp-service-account-private-key-id
+    name: GCP Service Account private_key_id
+    severity: high
+    confidence: high
+    pattern: '"private_key_id"\s*:\s*"([0-9a-f]{40})"'
+    capture: 1
+    entropy:
+      min_entropy: 3.1
+      min_normalized: 0.78
+      min_length: 40
+      max_length: 40
+      min_charset_coverage: 0.60
+      charsets: [hex]
+    tags: [gcp, google, service-account]
+
+  - id: gcp-firebase-cloud-messaging-key
+    name: Firebase Cloud Messaging Server Key
+    severity: high
+    confidence: medium
+    pattern: '\b(AAAA[A-Za-z0-9_\-]{7}:APA91b[A-Za-z0-9_\-]{130,})\b'
+    capture: 1
+    entropy:
+      min_entropy: 4.2
+      min_normalized: 0.62
+      reject_encoded_text: false
+    tags: [gcp, firebase]
+
+  - id: gcp-oauth-access-token
+    name: Google OAuth Access Token
+    severity: medium
+    confidence: high
+    pattern: '\b(ya29\.[0-9A-Za-z_\-]{40,})'
+    capture: 1
+    entropy:
+      min_entropy: 4.0
+      min_normalized: 0.58
+      min_length: 44
+      reject_encoded_text: false
+    tags: [gcp, google, oauth, short-lived]

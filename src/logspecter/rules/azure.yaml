@@ -1,0 +1,87 @@
+version: 1
+pack: azure
+
+rules:
+  - id: azure-storage-account-key
+    name: Azure Storage Account Key
+    description: 88 字符 Base64 存储账户密钥，等同于该存储账户的完整读写权限。
+    severity: critical
+    confidence: high
+    pattern: 'AccountKey\s*=\s*([A-Za-z0-9+/]{86}==)'
+    capture: 1
+    ignore_case: true
+    entropy:
+      min_entropy: 4.8
+      min_normalized: 0.78
+      min_length: 88
+      max_length: 88
+      reject_encoded_text: false
+    tags: [azure, storage, credential]
+
+  - id: azure-storage-connection-string
+    name: Azure Storage Connection String
+    severity: critical
+    confidence: high
+    pattern: '(DefaultEndpointsProtocol=https?;AccountName=[a-z0-9]{3,24};AccountKey=[A-Za-z0-9+/]{86}==)'
+    capture: 1
+    ignore_case: true
+    entropy:
+      enabled: false
+    tags: [azure, storage, connection-string]
+
+  - id: azure-sas-signature
+    name: Azure SAS Token Signature
+    description: SAS URL 中的 sig 参数，泄露后可在有效期内直接访问资源。
+    severity: high
+    confidence: medium
+    pattern: '[?&]sig=([A-Za-z0-9%2FBbDd+/=]{40,200})(?:&|$|["'']|\s)'
+    capture: 1
+    entropy:
+      min_entropy: 4.0
+      min_normalized: 0.60
+      min_length: 40
+      reject_encoded_text: false
+    tags: [azure, sas]
+
+  - id: azure-ad-client-secret
+    name: Azure AD Application Client Secret
+    description: Entra ID（Azure AD）应用密码的现行格式，含 8Q~ / 7Q~ 特征段。
+    severity: critical
+    confidence: high
+    pattern: '\b([A-Za-z0-9_~.\-]{3}[0-9A-Za-z]Q~[A-Za-z0-9_~.\-]{31,34})\b'
+    capture: 1
+    entropy:
+      min_entropy: 4.0
+      min_normalized: 0.60
+      min_length: 37
+    tags: [azure, entra, credential]
+
+  - id: azure-servicebus-shared-access-key
+    name: Azure Service Bus / Event Hub SharedAccessKey
+    severity: critical
+    confidence: high
+    pattern: 'SharedAccessKey=([A-Za-z0-9+/]{43}=)'
+    capture: 1
+    ignore_case: true
+    entropy:
+      min_entropy: 4.5
+      min_normalized: 0.74
+      min_length: 44
+      max_length: 44
+      reject_encoded_text: false
+    tags: [azure, servicebus, connection-string]
+
+  - id: azure-subscription-management-cert
+    name: Azure Management Certificate (PFX base64)
+    severity: high
+    confidence: medium
+    pattern: '(?:managementcertificate|pfx|pkcs12)["'']?\s*[:=]\s*["'']?(MII[A-Za-z0-9+/]{200,}={0,2})'
+    capture: 1
+    ignore_case: true
+    entropy:
+      min_entropy: 4.6
+      min_normalized: 0.72
+      min_length: 200
+      max_length: 65536
+      reject_encoded_text: false
+    tags: [azure, certificate]

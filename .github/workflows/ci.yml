@@ -1,0 +1,154 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Ruff (lint)
+        run: ruff check .
+      - name: Ruff (format check)
+        run: ruff format --check .
+
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Unit tests
+        run: pytest -q --cov=logspecter --cov-report=xml
+      - name: Self-test (recall + zero false positives)
+        run: logspecter selftest --verbose
+      - name: Rule library sanity
+        run: |
+          logspecter rules list
+          logspecter version
+      - name: Upload coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.xml
+
+  # 没有 orjson 的环境必须仍然可用（结构化层会回退到标准库 json）
+  fallback-json-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install without orjson
+        run: |
+          python -m pip install --upgrade pip
+          pip install typer rich PyYAML pytest pytest-cov
+          pip install -e . --no-deps
+      - name: Verify fallback backend is active
+        run: |
+          python - <<'PY'
+          from logspecter.structured import JSON_BACKEND
+          assert JSON_BACKEND == "json", JSON_BACKEND
+          print("fallback backend OK")
+          PY
+      - name: Tests on fallback backend
+        run: pytest -q
+
+  end-to-end:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Scan a synthetic log and expect a non-zero exit
+        run: |
+          logspecter benchmark --size 8MB --workers 2 --keep /tmp/bench.log
+          set +e
+          logspecter scan /tmp/bench.log --workers 2 --format json -o /tmp/findings.json --quiet
+          code=$?
+          set -e
+          test "$code" = "1" || { echo "expected exit code 1, got $code"; exit 1; }
+          python -c "import json;d=json.load(open('/tmp/findings.json'));assert d['summary']['findings']>0;print(d['summary'])"
+
+      - name: Exit code 0 on a clean log
+        run: |
+          printf '2026-08-30 INFO nothing to see here\n' > /tmp/clean.log
+          logspecter scan /tmp/clean.log --workers 1 --quiet
+
+      - name: Reports must never contain plaintext secrets
+        run: |
+          ! grep -qE 'AKIA[A-Z0-9]{16}' /tmp/findings.json
+
+      - name: stdin pipeline
+        run: cat /tmp/bench.log | logspecter scan - --workers 1 --fail-on none --quiet
+
+      - name: Compressed input
+        run: |
+          gzip -c /tmp/bench.log > /tmp/bench.log.gz
+          logspecter scan /tmp/bench.log.gz --workers 2 --fail-on none --quiet
+
+      - name: SARIF output is well formed
+        run: |
+          logspecter scan /tmp/bench.log --workers 2 -f sarif -o /tmp/results.sarif --fail-on none --quiet
+          python -c "import json;d=json.load(open('/tmp/results.sarif'));assert d['version']=='2.1.0';assert d['runs'][0]['results']"
+
+      - name: Baseline suppresses known findings
+        run: |
+          logspecter scan /tmp/bench.log --workers 2 --write-baseline /tmp/base.json --fail-on none --quiet
+          logspecter scan /tmp/bench.log --workers 2 --baseline /tmp/base.json --quiet
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          twine check dist/*
+      - name: Bundled rule packs must be inside the wheel
+        run: |
+          python -m zipfile -l dist/*.whl | grep -q 'logspecter/rules/aws.yaml'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/

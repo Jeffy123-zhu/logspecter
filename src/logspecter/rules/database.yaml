@@ -1,0 +1,86 @@
+﻿version: 1
+pack: database
+
+# 连接串里的口令。这类值往往是人类设定的弱口令，熵值不高，因此门限必须放低，
+# 转而依靠「协议前缀 + user:pass@host」这种极强的结构特征保证精度。
+
+rules:
+  - id: db-connection-uri-password
+    name: Database Connection URI with Password
+    description: postgres/mysql/mongodb/redis/amqp 等连接串中的明文口令。
+    severity: critical
+    confidence: high
+    pattern: '\b(?:postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|redis(?:s)?|amqps?|mssql|clickhouse|cassandra|elasticsearch)://[^:@/\s"'']{1,64}:([^@/\s"'']{4,128})@'
+    capture: 1
+    ignore_case: true
+    entropy:
+      min_entropy: 1.8
+      min_normalized: 0.20
+      min_length: 4
+      min_charset_coverage: 0.35
+      max_word_likeness: 0.95
+      reject_encoded_text: false
+    tags: [database, connection-string, credential]
+
+  - id: http-basic-auth-in-url
+    name: HTTP Basic Auth Credentials in URL
+    severity: high
+    confidence: high
+    pattern: '\bhttps?://[^:@/\s"'']{1,64}:([^@/\s"'']{4,128})@[^\s"'']+'
+    capture: 1
+    ignore_case: true
+    entropy:
+      min_entropy: 1.8
+      min_normalized: 0.20
+      min_length: 4
+      min_charset_coverage: 0.35
+      max_word_likeness: 0.95
+      reject_encoded_text: false
+    tags: [http, credential]
+
+  - id: jdbc-url-password
+    name: JDBC URL Password Parameter
+    severity: critical
+    confidence: high
+    pattern: 'jdbc:[a-z0-9]+:[^\s"'']*[?&;](?:password|pwd)=([^&;\s"'']{4,128})'
+    capture: 1
+    ignore_case: true
+    entropy:
+      min_entropy: 1.8
+      min_normalized: 0.20
+      min_length: 4
+      min_charset_coverage: 0.35
+      max_word_likeness: 0.95
+      reject_encoded_text: false
+    tags: [database, jdbc, credential]
+
+  - id: mongodb-scram-credential
+    name: MongoDB SCRAM Credential Dump
+    severity: high
+    confidence: medium
+    pattern: '"(?:storedKey|serverKey|salt)"\s*:\s*"([A-Za-z0-9+/]{20,}={0,2})"'
+    capture: 1
+    entropy:
+      min_entropy: 3.8
+      min_normalized: 0.60
+      min_length: 20
+      reject_encoded_text: false
+    tags: [database, mongodb, hash]
+
+  - id: redis-auth-command
+    name: Redis AUTH Command in Log
+    description: 日志里记录了 AUTH 命令，说明 Redis 口令被原样落盘。
+    severity: high
+    confidence: medium
+    pattern: '\bAUTH\s+(?:[^\s"'']{1,64}\s+)?([^\s"'']{6,128})'
+    capture: 1
+    keywords: [redis, command, cmd]
+    require_keyword: true
+    entropy:
+      min_entropy: 2.2
+      min_normalized: 0.30
+      min_length: 6
+      min_charset_coverage: 0.35
+      max_word_likeness: 0.95
+      reject_encoded_text: false
+    tags: [database, redis, credential]
