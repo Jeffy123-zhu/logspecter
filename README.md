@@ -1,5 +1,10 @@
 ﻿# LogSpecter
 
+[![PyPI version](https://img.shields.io/pypi/v/logspecter.svg)](https://pypi.org/project/logspecter/)
+[![Python Version](https://img.shields.io/pypi/pyversions/logspecter.svg)](https://pypi.org/project/logspecter/)
+[![CI Status](https://github.com/Jeffy123-zhu/logspecter/actions/workflows/ci.yml/badge.svg)](https://github.com/Jeffy123-zhu/logspecter/actions)
+[![License](https://img.shields.io/github/license/Jeffy123-zhu/logspecter.svg)](https://github.com/Jeffy123-zhu/logspecter/blob/main/LICENSE)
+
 **Schema-aware secret scanner for cloud logs.** Regex finds candidates; Shannon entropy and a
 heuristic layer decide whether they are real keys; a JSON-structure layer tells you *who* leaked
 *what* through *which field*. Streams tens of gigabytes with a flat memory ceiling.
