@@ -49,7 +49,24 @@ app = typer.Typer(
 )
 rules_app = typer.Typer(help="规则库查看与校验。", no_args_is_help=True)
 app.add_typer(rules_app, name="rules")
+def _version_callback(value: bool) -> None:
+    if value:
+        Console(highlight=False).print(f"logspecter {__version__}")
+        raise typer.Exit()
 
+
+@app.callback()
+def main_callback(
+    version: bool | None = typer.Option(
+        None,
+        "--version",
+        "-V",
+        help="显示程序版本号并退出。",
+        callback=_version_callback,
+        is_eager=True,  # 确保优先解析版本号，跳过其他参数检查
+    ),
+) -> None:
+    pass
 EXIT_OK = 0
 EXIT_FINDINGS = 1
 EXIT_ERROR = 2
