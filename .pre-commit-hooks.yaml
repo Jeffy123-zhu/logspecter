@@ -1,0 +1,6 @@
+- id: logspecter
+  name: logSpecter
+  description: Schema-aware secret scanner for cloud logs
+  entry: logspecter scan
+  language: python
+  types: [text]
