@@ -14,6 +14,8 @@
 * ``2`` 参数错误 / 输入不可读 / 规则非法
 """
 
+from __future__ import annotations
+
 import contextlib
 import dataclasses
 import enum
@@ -408,10 +410,10 @@ def scan(
 def _run_scan(
     ui: Console,
     sources: list[str],
-    config: "engine.ScanConfig",
+    config: engine.ScanConfig,
     workers: int | None,
     show_progress: bool,
-) -> "engine.ScanResult":
+) -> engine.ScanResult:
     if not show_progress:
         return engine.scan(sources, config, workers=workers)
 
@@ -464,7 +466,7 @@ def _write_output(ui: Console, output: str, payload: str) -> None:
     ui.print(f"[green]报告已写入[/] {path}")
 
 
-def _exit_code(result: "engine.ScanResult", fail_on: FailOn) -> int:
+def _exit_code(result: engine.ScanResult, fail_on: FailOn) -> int:
     if fail_on is FailOn.NONE:
         return EXIT_OK
     threshold = Severity.parse(fail_on.value)
