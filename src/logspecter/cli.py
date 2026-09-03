@@ -49,6 +49,8 @@ app = typer.Typer(
 )
 rules_app = typer.Typer(help="规则库查看与校验。", no_args_is_help=True)
 app.add_typer(rules_app, name="rules")
+
+
 def _version_callback(value: bool) -> None:
     if value:
         Console(highlight=False).print(f"logspecter {__version__}")
@@ -67,6 +69,8 @@ def main_callback(
     ),
 ) -> None:
     pass
+
+
 EXIT_OK = 0
 EXIT_FINDINGS = 1
 EXIT_ERROR = 2
