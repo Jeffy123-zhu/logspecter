@@ -1,4 +1,7 @@
-﻿# LogSpecter
+[![OpenSSF Best Practices](https://bestpractices.coreinfrastructure.org/projects/14441/badge)](https://bestpractices.coreinfrastructure.org/projects/14441)
+ 
+ 
+ # LogSpecter
 
 [![PyPI version](https://img.shields.io/pypi/v/logspecter.svg)](https://pypi.org/project/logspecter/)
 [![Python Version](https://img.shields.io/pypi/pyversions/logspecter.svg)](https://pypi.org/project/logspecter/)
