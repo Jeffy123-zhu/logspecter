@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/Jeffy123-zhu/logspecter/security/advisories/new
+    about: Please report vulnerabilities (including detection bypasses and plaintext leaks) privately via a GitHub security advisory, not a public issue. See SECURITY.md.
+  - name: Security policy
+    url: https://github.com/Jeffy123-zhu/logspecter/blob/main/SECURITY.md
+    about: How security reports are handled.

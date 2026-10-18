@@ -1,0 +1,99 @@
+name: Bug report
+description: Something does not work as documented (crash, wrong exit code, false positive / false negative, bad report output).
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug.
+
+        **Never paste real credentials or unredacted production logs.** Replace any secret with a
+        fake value of the same shape (for example generated with `python -c "import secrets; print(secrets.token_urlsafe(32))"`),
+        and strip hostnames, account IDs, IPs, and user names you do not want to make public.
+
+        Security vulnerabilities (including ways to make LogSpecter leak plaintext secrets into reports)
+        must **not** be reported here — see [SECURITY.md](https://github.com/Jeffy123-zhu/logspecter/blob/main/SECURITY.md).
+
+  - type: input
+    id: version
+    attributes:
+      label: LogSpecter version
+      description: Output of `logspecter --version`, or the commit SHA if installed from source.
+      placeholder: "logspecter 0.1.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: A short description of the problem.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: The exact command line you ran and any custom rule file (`--rules`) involved.
+      placeholder: |
+        1. Save the log sample below as `sample.log`
+        2. Run `logspecter scan sample.log --workers 1 -f json`
+        3. ...
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: log-sample
+    attributes:
+      label: Minimal log sample (redacted / fake secrets only)
+      description: |
+        The smallest input that reproduces the issue. **Use fake secrets only.**
+        For false positives, include the line that was flagged; for false negatives, a line with a
+        fake key of the same format that should have been detected.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the relevant output, traceback, or exit code. Reports are redacted by default — do not re-run with `--show-secrets` to paste here.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Output of `logspecter version` (Python version, platform, JSON backend, CPU count) and how you installed it.
+      placeholder: |
+        logspecter 0.1.0
+        python     3.12.4 (linux)
+        json 后端  orjson
+        CPU 核数   8
+        installed via: pip install logspecter
+      render: text
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: The samples above contain no real credentials or sensitive production data.
+          required: true
