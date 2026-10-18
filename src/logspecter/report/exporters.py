@@ -195,7 +195,7 @@ def to_sarif(result: Any, *, include_secret: bool = False) -> str:
                     "driver": {
                         "name": "LogSpecter",
                         "version": __version__,
-                        "informationUri": "https://github.com/logspecter/logspecter",
+                        "informationUri": "https://github.com/Jeffy123-zhu/logspecter",
                         "rules": list(rules.values()),
                     }
                 },

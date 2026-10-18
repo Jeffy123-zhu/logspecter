@@ -128,6 +128,9 @@ class TestSarifExport:
         assert document["version"] == "2.1.0"
         run = document["runs"][0]
         assert run["tool"]["driver"]["name"] == "LogSpecter"
+        assert (
+            run["tool"]["driver"]["informationUri"] == "https://github.com/Jeffy123-zhu/logspecter"
+        )
         assert run["tool"]["driver"]["rules"]
         assert run["results"]
         first = run["results"][0]

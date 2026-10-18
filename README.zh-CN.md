@@ -115,7 +115,7 @@ pip install logspecter
 从源码：
 
 ```bash
-git clone https://github.com/logspecter/logspecter
+git clone https://github.com/Jeffy123-zhu/logspecter
 cd logspecter
 pip install -e ".[dev]"
 ```
