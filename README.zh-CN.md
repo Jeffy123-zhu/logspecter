@@ -276,6 +276,9 @@ logspecter/
 
 ## 参与开发
 
+完整的贡献指南（环境搭建、新增规则、PR 流程）见 [CONTRIBUTING.md](CONTRIBUTING.md)；
+想找入门任务可以看带 [`good first issue`](https://github.com/Jeffy123-zhu/logspecter/labels/good%20first%20issue) 标签的 issue。
+
 ```bash
 pip install -e ".[dev]"
 pytest              # 360 个测试

@@ -1,0 +1,60 @@
+name: Feature request
+description: Suggest a new CLI option, output format, log schema, or other improvement.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Want a new **detection rule** for a specific provider's credential format? Please use the
+        "New detection rule" template instead.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What are you trying to do, and why is it hard or impossible today?
+      placeholder: "When I scan ... I need to ..., but currently ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should LogSpecter do? Include example commands, flags, or output if it helps.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you use today, or other designs you thought about.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - CLI (cli.py)
+        - Detection pipeline / entropy (scanner.py, entropy.py)
+        - Rules engine (rules.py, prefilter.py)
+        - Cloud log schemas (cloud.py, structured.py)
+        - Input / performance (ingest.py, engine.py)
+        - Reports (report/console.py, report/exporters.py)
+        - Baseline (baseline.py)
+        - Documentation
+        - Other
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I am willing to open a pull request for this.

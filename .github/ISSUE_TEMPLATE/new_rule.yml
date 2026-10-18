@@ -1,0 +1,93 @@
+name: New detection rule
+description: Request or propose a rule for a credential format LogSpecter does not detect yet.
+title: "[Rule]: "
+labels: ["rules", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check first with `logspecter rules list` that the format is not already covered.
+        The rule format is documented in [docs/rules.md](https://github.com/Jeffy123-zhu/logspecter/blob/main/docs/rules.md).
+
+        **Only post fake examples.** Generate a random string with the same prefix, length and
+        character set as the real token. Never paste a real key, even a revoked one.
+
+  - type: input
+    id: provider
+    attributes:
+      label: Provider / service
+      placeholder: "e.g. DigitalOcean, Linear, New Relic"
+    validations:
+      required: true
+
+  - type: input
+    id: credential-type
+    attributes:
+      label: Credential type
+      placeholder: "e.g. personal access token, API key, webhook URL"
+    validations:
+      required: true
+
+  - type: textarea
+    id: format
+    attributes:
+      label: Key format
+      description: |
+        Prefix, total length, character set, separators, checksum — anything that makes the format
+        recognisable. If you have a candidate regex, include it (it is compiled as a **bytes** pattern,
+        so `\w` and `\b` are ASCII-only).
+      placeholder: |
+        Prefix `xyz_live_`, followed by 40 characters of [A-Za-z0-9].
+        Candidate pattern: '\b(xyz_live_[A-Za-z0-9]{40})\b'
+    validations:
+      required: true
+
+  - type: textarea
+    id: example
+    attributes:
+      label: Example log line (FAKE value only)
+      description: A realistic log line containing a fake token of this format.
+      render: text
+      placeholder: "2026-08-30T10:00:00Z INFO client init XYZ_TOKEN=xyz_live_<40 random chars>"
+    validations:
+      required: true
+
+  - type: textarea
+    id: references
+    attributes:
+      label: Reference documentation
+      description: Links to the provider's official docs describing the token format (these go into the rule's `references` field).
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Suggested severity
+      options:
+        - critical
+        - high
+        - medium
+        - low
+        - info
+    validations:
+      required: false
+
+  - type: textarea
+    id: false-positives
+    attributes:
+      label: Known look-alikes / false-positive risks
+      description: Strings with a similar shape that must NOT match (these become negative samples).
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: The example above is fake and was never a valid credential.
+          required: true
+        - label: I checked `logspecter rules list` and existing issues for this provider.
+          required: true
+        - label: I am willing to open a pull request implementing this rule.

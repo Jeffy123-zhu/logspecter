@@ -304,6 +304,10 @@ If you find a vulnerability, please open a private security advisory rather than
 
 ## Contributing
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide (setup, adding rules, PR flow), and the
+[`good first issue`](https://github.com/Jeffy123-zhu/logspecter/labels/good%20first%20issue) label
+for a place to start.
+
 ```bash
 pip install -e ".[dev]"
 pytest              # 360 tests
