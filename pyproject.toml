@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logspecter"
-version = "0.1.0"
+version = "1.1.0"
 description = "Schema-aware, entropy-validated secret scanner for cloud logs. Streams tens of GB with a flat ~50 MB memory ceiling."
 readme = "README.md"
 requires-python = ">=3.10"
