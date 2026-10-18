@@ -361,13 +361,50 @@ class TestBaselineWorkflow:
 
 class TestRulesCommands:
     def test_list(self) -> None:
-        result = runner.invoke(app, ["rules", "list"])
+        result = runner.invoke(app, ["rules", "list"], env={"COLUMNS": "240"})
         assert result.exit_code == 0
         assert "aws-access-key-id" in result.output
+        assert "github-personal-access-token" in result.output
 
     def test_list_filtered_by_pack(self) -> None:
         result = runner.invoke(app, ["rules", "list", "--pack", "gcp"])
         assert "gcp-api-key" in result.output
+
+    def test_list_filtered_by_tag(self) -> None:
+        result = runner.invoke(app, ["rules", "list", "--tag", "github"], env={"COLUMNS": "240"})
+        assert result.exit_code == 0, result.output
+        assert "github-personal-access-token" in result.output
+        assert "aws-access-key-id" not in result.output
+
+    def test_list_repeated_tags_match_either_tag(self) -> None:
+        result = runner.invoke(
+            app, ["rules", "list", "--tag", "github", "--tag", "aws"], env={"COLUMNS": "240"}
+        )
+        assert result.exit_code == 0, result.output
+        assert "github-personal-access-token" in result.output
+        assert "aws-access-key-id" in result.output
+        assert "gcp-api-key" not in result.output
+
+    def test_list_pack_intersects_tag_filter(self) -> None:
+        result = runner.invoke(
+            app,
+            ["rules", "list", "--pack", "vendors", "--tag", "github", "--tag", "aws"],
+            env={"COLUMNS": "240"},
+        )
+        assert result.exit_code == 0, result.output
+        assert "github-personal-access-token" in result.output
+        assert "aws-access-key-id" not in result.output
+        assert "stripe-live-secret-key" not in result.output
+
+    @pytest.mark.parametrize(
+        "filters", [["--tag", "does-not-exist"], ["--pack", "aws", "--tag", "github"]]
+    )
+    def test_list_tag_filter_with_no_matches(self, filters: list[str]) -> None:
+        result = runner.invoke(app, ["rules", "list", *filters])
+        assert result.exit_code == 0, result.output
+        assert "共 0 条规则" in result.output
+        assert "github-personal-access-token" not in result.output
+        assert "aws-access-key-id" not in result.output
 
     def test_show_structural_rule(self) -> None:
         result = runner.invoke(app, ["rules", "show", "aws-access-key-id"])
