@@ -1,0 +1,72 @@
+name: LogSpecter Secret Scan
+description: Schema-aware, entropy-validated secret scanner for logs (JSON path tracking, cloud log context, SARIF output).
+author: Jeffy123-zhu
+branding:
+  icon: shield
+  color: purple
+inputs:
+  path:
+    description: File or directory to scan (space-separated for several).
+    required: false
+    default: "."
+  format:
+    description: Report format - table, json, csv or sarif.
+    required: false
+    default: table
+  output:
+    description: Write the report to this file instead of stdout (e.g. logspecter.sarif).
+    required: false
+    default: ""
+  fail-on:
+    description: Fail the step when a finding reaches this severity - critical, high, medium, low, info or none.
+    required: false
+    default: high
+  baseline:
+    description: Baseline file; findings listed in it are suppressed.
+    required: false
+    default: ""
+  args:
+    description: Extra arguments passed to `logspecter scan` verbatim.
+    required: false
+    default: ""
+  python-version:
+    description: Python version used to run LogSpecter.
+    required: false
+    default: "3.12"
+outputs:
+  exit-code:
+    description: Exit code of logspecter scan (0 clean, 1 findings at/above fail-on, 2 bad input).
+    value: ${{ steps.scan.outputs.exit-code }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+    - name: Install LogSpecter
+      shell: bash
+      run: python -m pip install --disable-pip-version-check -q "${{ github.action_path }}"
+    - name: Scan
+      id: scan
+      shell: bash
+      env:
+        PYTHONUTF8: "1"
+        LS_PATH: ${{ inputs.path }}
+        LS_FORMAT: ${{ inputs.format }}
+        LS_OUTPUT: ${{ inputs.output }}
+        LS_FAIL_ON: ${{ inputs.fail-on }}
+        LS_BASELINE: ${{ inputs.baseline }}
+        LS_ARGS: ${{ inputs.args }}
+      run: |
+        cmd=(logspecter scan --no-progress -f "$LS_FORMAT" --fail-on "$LS_FAIL_ON")
+        [ -n "$LS_OUTPUT" ] && cmd+=(-o "$LS_OUTPUT")
+        [ -n "$LS_BASELINE" ] && cmd+=(--baseline "$LS_BASELINE")
+        # word-splitting is intentional: path and args may hold several values
+        # shellcheck disable=SC2206
+        cmd+=($LS_ARGS $LS_PATH)
+        set +e
+        "${cmd[@]}"
+        code=$?
+        set -e
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        exit "$code"
