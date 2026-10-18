@@ -224,9 +224,10 @@ def _detail_panel(group: FindingGroup, *, show_secrets: bool) -> Panel:
     grid.add_column(justify="right", style="dim", width=14)
     grid.add_column(overflow="fold")
 
-    grid.add_row("规则", f"{finding.rule_id} — {finding.rule_name}")
+    # 来自日志/规则的字符串一律包成 Text，避免 [admin] 之类内容被 Rich 当成 markup 吞掉。
+    grid.add_row("规则", Text(f"{finding.rule_id} — {finding.rule_name}"))
     grid.add_row("指纹", group.fingerprint)
-    grid.add_row("凭据", finding.secret if show_secrets else finding.secret_masked)
+    grid.add_row("凭据", Text(finding.secret if show_secrets else finding.secret_masked))
     grid.add_row(
         "熵值",
         f"{finding.entropy:.4f} bit/char（归一化 {finding.normalized_entropy:.3f}，"
@@ -239,13 +240,13 @@ def _detail_panel(group: FindingGroup, *, show_secrets: bool) -> Panel:
         for key in ("schema", "actor", "action", "resource", "region", "source_ip", "timestamp"):
             value = finding.cloud_context.get(key)
             if value:
-                grid.add_row(key, value)
+                grid.add_row(key, Text(str(value)))
     if group.json_paths:
-        grid.add_row("JSON 路径", "\n".join(sorted(group.json_paths)[:8]))
+        grid.add_row("JSON 路径", Text("\n".join(sorted(group.json_paths)[:8])))
     if group.extra_locations:
-        grid.add_row("其他位置", "\n".join(group.extra_locations))
+        grid.add_row("其他位置", Text("\n".join(group.extra_locations)))
     if finding.tags:
-        grid.add_row("标签", ", ".join(finding.tags))
+        grid.add_row("标签", Text(", ".join(finding.tags)))
 
     return Panel(
         grid,

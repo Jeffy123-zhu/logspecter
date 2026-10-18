@@ -435,6 +435,16 @@ class TestRulesCommands:
             result = runner.invoke(app, ["rules", "show", rule.id])
             assert result.exit_code == 0, f"{rule.id}: {result.output}"
 
+    @pytest.mark.parametrize(
+        ("rule_id", "fragment"),
+        [("slack-token", "xox[abeoprs]-"), ("github-personal-access-token", "gh[pousr]_")],
+    )
+    def test_show_keeps_regex_character_classes(self, rule_id: str, fragment: str) -> None:
+        """正则里的小写字符类不能被 Rich markup 当成标签吞掉（#20）。"""
+        result = runner.invoke(app, ["rules", "show", rule_id])
+        assert result.exit_code == 0, result.output
+        assert fragment in result.output
+
     def test_show_unknown(self) -> None:
         result = runner.invoke(app, ["rules", "show", "nope"])
         assert result.exit_code == 2

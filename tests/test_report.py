@@ -182,6 +182,34 @@ class TestConsoleRendering:
         assert "判定依据" in text
         assert "指纹" in text
 
+    def test_verbose_panel_does_not_parse_log_data_as_markup(
+        self, ruleset: RuleSet, tmp_path: Path
+    ) -> None:
+        """日志里的 ``[...]`` 不能被 Rich 当成标签吞掉或触发 MarkupError（#20）。"""
+        log = tmp_path / "trail.json"
+        log.write_text(
+            json.dumps(
+                {
+                    "eventVersion": "1.08",
+                    "userIdentity": {"type": "IAMUser", "userName": "ops[admin]x"},
+                    "eventName": "AssumeRole",
+                    "eventSource": "sts.amazonaws.com",
+                    "awsRegion": "us-east-1",
+                    "requestParameters": {"accessKeyId": SECRET},
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        scanned = engine.scan(
+            [str(log)],
+            engine.ScanConfig(ruleset=ruleset, options=ScanOptions()),
+            workers=1,
+        )
+        assert scanned.groups
+        # 表格与详情面板各出现一次；详情面板曾把 [admin] 当成样式标签吞掉。
+        assert self._render(scanned, verbose=True).count("ops[admin]x") == 2
+
     def test_clean_result_message(self, ruleset: RuleSet, tmp_path: Path) -> None:
         log = tmp_path / "clean.log"
         log.write_text("nothing to see here\n", encoding="utf-8")
