@@ -204,7 +204,7 @@ Exit codes: `0` clean, `1` findings at or above `--fail-on` (default `high`), `2
 ### Other commands
 
 ```bash
-logspecter rules list                        # 65 built-in rules across 7 packs
+
 logspecter rules show aws-secret-access-key  # pattern, entropy gate, prefilter
 logspecter rules validate ./my-rules.yaml    # lint custom rules
 logspecter selftest                          # 65 positive + 25 negative samples

@@ -162,7 +162,7 @@ logspecter scan ./logs -f sarif -o results.sarif   # GitHub 代码扫描可直�
 ### 其他子命令
 
 ```bash
-logspecter rules list                        # 7 个规则包、65 条内置规则
+
 logspecter rules show aws-secret-access-key  # 正则、熵门限、预筛条件
 logspecter rules validate ./my-rules.yaml    # 校验自定义规则
 logspecter selftest                          # 65 条正样本 + 25 条负样本

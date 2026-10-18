@@ -486,6 +486,9 @@ def rules_list(
     rule_paths: list[str] | None = typer.Option(None, "--rules", "-r", help="附加规则文件或目录。"),
     builtin_rules: bool = typer.Option(True, "--builtin-rules/--no-builtin-rules"),
     pack: list[str] | None = typer.Option(None, "--pack", help="只看指定规则包。"),
+    tag: list[str] | None = typer.Option(
+        None, "--tag", help="只看带指定标签的规则（可重复，匹配任一标签）。"
+    ),
     show_pattern: bool = typer.Option(False, "--show-pattern", help="同时显示正则源串。"),
 ) -> None:
     console = Console(highlight=False)
@@ -494,8 +497,8 @@ def rules_list(
     except RuleSyntaxError as exc:
         _fail(console, str(exc))
         return
-    if pack:
-        ruleset = ruleset.select(packs=list(pack))
+    if pack or tag:
+        ruleset = ruleset.select(packs=list(pack or []), tags=list(tag or []))
     report.render_rules_table(console, ruleset, show_pattern=show_pattern)
 
 
