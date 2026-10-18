@@ -23,6 +23,30 @@ Not "a suspicious string on line 800". The actual identity, the actual API call,
 
 ---
 
+### Real output
+
+`logspecter scan examples/app.log` on the bundled sample (run on Windows, first 17 lines; the CLI UI is currently in Chinese):
+
+```text
+LogSpecter v0.1.0 · 61 条规则 · JSON 后端 orjson · 分块 4.0 MiB
+┌──────────────────────── LogSpecter v0.1.0 扫描摘要 ─────────────────────────┐
+│ 唯一泄露  4 条（总出现 4 次）                                               │
+│ 等级分布   critical × 2   high × 2                                          │
+│   扫描量  1 个来源 / 1 个块 / 2.6 KiB / 18 行                               │
+│     性能  0.02s · 0.2 MiB/s · 1 进程                                        │
+│ 内存峰值  单进程最高 32.6 MiB（全部进程合计 32.6 MiB）                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+ CRITICAL  private-key-pem-header  ×1  conf 1.00  H 3.38
+  detail
+  examples\app.log:13  ----********---- (len=31)
+
+ CRITICAL  stripe-live-secret-key  ×1  conf 1.00  H 4.86
+  examples\app.log:6:91
+  examples\app.log:6  sk_l********aJ3s (len=33)
+
+ HIGH  authorization-header-basic  ×1  conf 1.00  H 4.50
+```
+
 ## Why another secret scanner
 
 Most log scanners are a pile of regexes. That fails in production for three reasons, and
@@ -133,7 +157,7 @@ pip install logspecter
 From source:
 
 ```bash
-git clone https://github.com/logspecter/logspecter
+git clone https://github.com/Jeffy123-zhu/logspecter
 cd logspecter
 pip install -e ".[dev]"
 ```
@@ -186,6 +210,61 @@ logspecter rules validate ./my-rules.yaml    # lint custom rules
 logspecter selftest                          # 64 positive + 25 negative samples
 logspecter benchmark --size 1GB -j 8         # throughput and memory on your box
 ```
+
+## GitHub Action
+
+```yaml
+# .github/workflows/secret-scan.yml
+on: [push, pull_request]
+permissions:
+  contents: read
+  security-events: write   # only needed for the SARIF upload
+jobs:
+  logspecter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Jeffy123-zhu/logspecter@v1
+        with:
+          path: logs/
+          format: sarif
+          output: logspecter.sarif
+          fail-on: high          # critical | high | medium | low | info | none
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: logspecter.sarif
+```
+
+Inputs: `path` (default `.`), `format` (`table`/`json`/`csv`/`sarif`), `output`, `fail-on` (default `high`),
+`baseline`, `args` (extra `logspecter scan` flags), `python-version`. Output: `exit-code`.
+
+## pre-commit
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/Jeffy123-zhu/logspecter
+    rev: v1.0.0   # or any newer tag
+    hooks:
+      - id: logspecter
+```
+
+## How it compares
+
+Only differences we could verify are filled in; `—` means "not checked", not "no".
+
+| | LogSpecter | gitleaks | trufflehog | detect-secrets |
+|---|---|---|---|---|
+| Primary target | log files / streams (`.gz`, stdin) | git repos, files | git repos, files, many sources | files in a repo |
+| JSON path + identity context per finding (e.g. CloudTrail user → field) | yes | — | — | — |
+| Shannon-entropy validation | yes | yes | — | yes |
+| Flat-memory streaming of multi-GB logs | yes | — | — | — |
+| Live credential verification | no | no | yes | — |
+| Git history scanning | no | yes | yes | — |
+| SARIF output | yes | yes | — | — |
+| Baseline / suppress known findings | yes | yes | — | yes |
+| Language | Python | Go | Go | Python |
 
 ## Custom rules
 

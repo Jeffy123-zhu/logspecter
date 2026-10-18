@@ -1,4 +1,8 @@
 ﻿# LogSpecter
+[![PyPI version](https://img.shields.io/pypi/v/logspecter.svg)](https://pypi.org/project/logspecter/)
+[![Python Version](https://img.shields.io/pypi/pyversions/logspecter.svg)](https://pypi.org/project/logspecter/)
+[![CI Status](https://github.com/Jeffy123-zhu/logspecter/actions/workflows/ci.yml/badge.svg)](https://github.com/Jeffy123-zhu/logspecter/actions)
+[![License](https://img.shields.io/github/license/Jeffy123-zhu/logspecter.svg)](https://github.com/Jeffy123-zhu/logspecter/blob/main/LICENSE)
 
 **面向云端结构化日志的凭据泄露扫描器。** 正则负责初筛，香农熵与启发式层负责判断「像不像真钥匙」，
 JSON 结构层负责回答「谁、通过哪个字段、泄露了什么」。扫几十 GB 日志内存不涨。
@@ -163,6 +167,45 @@ logspecter rules show aws-secret-access-key  # 正则、熵门限、预筛条件
 logspecter rules validate ./my-rules.yaml    # 校验自定义规则
 logspecter selftest                          # 64 条正样本 + 25 条负样本
 logspecter benchmark --size 1GB -j 8         # 在你自己的机器上测吞吐与内存
+```
+
+## GitHub Action
+
+```yaml
+# .github/workflows/secret-scan.yml
+on: [push, pull_request]
+permissions:
+  contents: read
+  security-events: write   # 仅上传 SARIF 时需要
+jobs:
+  logspecter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Jeffy123-zhu/logspecter@v1
+        with:
+          path: logs/
+          format: sarif
+          output: logspecter.sarif
+          fail-on: high          # critical | high | medium | low | info | none
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: logspecter.sarif
+```
+
+输入：`path`（默认 `.`）、`format`（`table`/`json`/`csv`/`sarif`）、`output`、`fail-on`（默认 `high`）、
+`baseline`、`args`（透传给 `logspecter scan` 的额外参数）、`python-version`。输出：`exit-code`。
+
+## pre-commit
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/Jeffy123-zhu/logspecter
+    rev: v1.0.0   # 或更新的 tag
+    hooks:
+      - id: logspecter
 ```
 
 ## 自定义规则
