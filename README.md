@@ -204,11 +204,10 @@ Exit codes: `0` clean, `1` findings at or above `--fail-on` (default `high`), `2
 ### Other commands
 
 ```bash
-logspecter rules list                        # 64 built-in rules across 7 packs
-logspecter rules list --tag github --tag aws # rules matching either tag
+
 logspecter rules show aws-secret-access-key  # pattern, entropy gate, prefilter
 logspecter rules validate ./my-rules.yaml    # lint custom rules
-logspecter selftest                          # 64 positive + 25 negative samples
+logspecter selftest                          # 65 positive + 25 negative samples
 logspecter benchmark --size 1GB -j 8         # throughput and memory on your box
 ```
 
@@ -330,10 +329,10 @@ print(result.stats.throughput_mb_s, result.stats.peak_rss_max_process)
 `logspecter selftest` runs the bundled corpus with **every** rule enabled:
 
 ```
-检出率 64/64  ·  负样本零误报 25/25
+检出率 65/65  ·  负样本零误报 25/25
 ```
 
-64 positive samples (one per rule, generated from a fixed seed — no real credentials in the repo)
+65 positive samples (one per rule, generated from a fixed seed — no real credentials in the repo)
 and 25 negative samples drawn from the shapes that actually fool regex-only scanners: UUID request
 IDs, git SHAs, base64-encoded JSON cursors, camel-case class names, template placeholders,
 `AKIAIOSFODNN7EXAMPLE`, ISO timestamps, CSS colours, service-account token paths, and unkeyed

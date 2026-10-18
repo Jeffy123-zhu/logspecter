@@ -327,3 +327,15 @@ rules:
       reject_encoded_text: false
       max_word_likeness: 0.90
     tags: [jwt, token, session]
+
+  - id: digitalocean-access-token
+    name: DigitalOcean Access Token
+    severity: critical
+    confidence: high
+    pattern: '\b(do[opr]_v1_[a-f0-9]{64})\b'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [digitalocean, cloud]
+    references:
+    - https://docs.digitalocean.com/notes/2022/api-token-format
