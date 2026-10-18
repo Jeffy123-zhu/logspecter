@@ -25,6 +25,7 @@ from pathlib import Path
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.progress import (
     BarColumn,
     Progress,
@@ -143,7 +144,7 @@ def parse_size(text: str) -> int:
 
 
 def _fail(console: Console, message: str) -> None:
-    console.print(f"[bold red]错误[/] {message}")
+    console.print(f"[bold red]错误[/] {escape(message)}")
     raise typer.Exit(EXIT_ERROR)
 
 
@@ -528,21 +529,22 @@ def rules_show(
         extra_group=rule.keywords if rule.require_keyword else (),
     )
     gate = rule.entropy
-    console.print(f"[bold cyan]{rule.id}[/] — {rule.name}")
-    console.print(f"  包        {rule.pack}")
+    # 规则字段（尤其是正则里的 [abc] 字符类）必须转义，否则会被 Rich 当成 markup 标签吞掉。
+    console.print(f"[bold cyan]{escape(rule.id)}[/] — {escape(rule.name)}")
+    console.print(f"  包        {escape(rule.pack)}")
     console.print(f"  等级/置信 {rule.severity.value} / {rule.confidence.value}")
     console.print(f"  状态      {'启用' if rule.enabled else '默认关闭'}")
-    console.print(f"  正则      {rule.pattern}")
+    console.print(f"  正则      {escape(rule.pattern)}")
     console.print(f"  捕获组    {rule.capture}")
     if rule.exclude_pattern:
-        console.print(f"  排除      {rule.exclude_pattern}")
+        console.print(f"  排除      {escape(rule.exclude_pattern)}")
     if rule.keywords:
         need = "必须" if rule.require_keyword else "可选"
         console.print(
-            f"  关键词    {', '.join(rule.keywords)}（{need}，窗口 ±{rule.keyword_window}）"
+            f"  关键词    {escape(', '.join(rule.keywords))}（{need}，窗口 ±{rule.keyword_window}）"
         )
     if rule.json_keys:
-        console.print(f"  JSON 键   {', '.join(rule.json_keys)}")
+        console.print(f"  JSON 键   {escape(', '.join(rule.json_keys))}")
     if gate.enabled:
         console.print(
             f"  熵门限    H≥{gate.min_entropy} 归一化≥{gate.min_normalized} "
@@ -556,13 +558,13 @@ def rules_show(
         )
     else:
         console.print("  熵门限    结构性规则，跳过熵校验（仅保留占位符过滤）")
-    console.print(f"  预筛      {prefilter.describe()}")
+    console.print(f"  预筛      {escape(prefilter.describe())}")
     if rule.tags:
-        console.print(f"  标签      {', '.join(rule.tags)}")
+        console.print(f"  标签      {escape(', '.join(rule.tags))}")
     if rule.description:
-        console.print(f"  说明      {rule.description}")
+        console.print(f"  说明      {escape(rule.description)}")
     for ref in rule.references:
-        console.print(f"  参考      {ref}")
+        console.print(f"  参考      {escape(ref)}")
 
 
 @rules_app.command("validate", help="校验自定义规则文件是否合法，并检查预筛健全性。")
@@ -591,7 +593,9 @@ def rules_validate(
             extra_group=rule.keywords if rule.require_keyword else (),
         )
         marker = (
-            prefilter.describe() if prefilter.active else "[yellow]全量扫描（每行都会执行正则）[/]"
+            escape(prefilter.describe())
+            if prefilter.active
+            else "[yellow]全量扫描（每行都会执行正则）[/]"
         )
         console.print(f"  {rule.id:44s} {marker}")
 
