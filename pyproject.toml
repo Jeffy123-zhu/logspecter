@@ -48,9 +48,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/logspecter/logspecter"
-Repository = "https://github.com/logspecter/logspecter"
-Issues = "https://github.com/logspecter/logspecter/issues"
+Homepage = "https://github.com/Jeffy123-zhu/logspecter"
+Repository = "https://github.com/Jeffy123-zhu/logspecter"
+Issues = "https://github.com/Jeffy123-zhu/logspecter/issues"
+Changelog = "https://github.com/Jeffy123-zhu/logspecter/releases"
 
 [project.scripts]
 logspecter = "logspecter.cli:main"

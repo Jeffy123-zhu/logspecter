@@ -137,6 +137,22 @@ jobs:
           logspecter scan /tmp/bench.log --workers 2 --write-baseline /tmp/base.json --fail-on none --quiet
           logspecter scan /tmp/bench.log --workers 2 --baseline /tmp/base.json --quiet
 
+  action-self-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run the composite action against examples/ (contains fake secrets)
+        id: ls
+        uses: ./
+        with:
+          path: examples/
+          format: json
+          output: findings.json
+          fail-on: none
+      - name: Assert the action detected the planted secrets
+        run: |
+          test "${{ steps.ls.outputs.exit-code }}" = "0" || { echo "unexpected exit code ${{ steps.ls.outputs.exit-code }}"; exit 1; }
+          python -c "import json;d=json.load(open('findings.json'));assert d['summary']['findings']>0;print(d['summary'])"
   build:
     runs-on: ubuntu-latest
     steps:
