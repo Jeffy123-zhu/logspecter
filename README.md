@@ -202,6 +202,15 @@ Exit codes: `0` clean, `1` findings at or above `--fail-on` (default `high`), `2
 | `--show-secrets` | print plaintext (off by default — reports are redacted) |
 | `--stats` | throughput, memory, and the full noise-reduction breakdown |
 
+### Redacting logs
+
+Write masked copies of plain log files to an output directory (preserving line endings, untouched bytes, and valid JSON records):
+
+```bash
+logspecter redact /var/log/app.log --output-dir ./sanitized
+logspecter redact ./logs/*.log --output-dir ./sanitized --force --min-severity high
+```
+
 ### Other commands
 
 ```bash
