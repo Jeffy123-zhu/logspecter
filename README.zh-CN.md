@@ -1,4 +1,4 @@
-﻿# LogSpecter
+# LogSpecter
 [![PyPI version](https://img.shields.io/pypi/v/logspecter.svg)](https://pypi.org/project/logspecter/)
 [![Python Version](https://img.shields.io/pypi/pyversions/logspecter.svg)](https://pypi.org/project/logspecter/)
 [![CI Status](https://github.com/Jeffy123-zhu/logspecter/actions/workflows/ci.yml/badge.svg)](https://github.com/Jeffy123-zhu/logspecter/actions)
@@ -165,7 +165,7 @@ logspecter scan ./logs -f sarif -o results.sarif   # GitHub 代码扫描可直�
 
 logspecter rules show aws-secret-access-key  # 正则、熵门限、预筛条件
 logspecter rules validate ./my-rules.yaml    # 校验自定义规则
-logspecter selftest                          # 65 条正样本 + 25 条负样本
+logspecter selftest                          # 66 条正样本 + 25 条负样本
 logspecter benchmark --size 1GB -j 8         # 在你自己的机器上测吞吐与内存
 ```
 
@@ -270,10 +270,10 @@ print(result.stats.throughput_mb_s, result.stats.peak_rss_max_process)
 `logspecter selftest` 在**全部规则开启**的条件下跑内置语料：
 
 ```
-检出率 65/65  ·  负样本零误报 25/25
+检出率 66/66  ·  负样本零误报 25/25
 ```
 
-65 条正样本（每条规则一条，用固定随机种子生成，仓库里没有任何真实凭据），25 条负样本全部取自真实日志中
+66 条正样本（每条规则一条，用固定随机种子生成，仓库里没有任何真实凭据），25 条负样本全部取自真实日志中
 最容易骗过纯正则扫描器的形态：UUID 请求 ID、git 提交哈希、Base64 编码的 JSON 游标、驼峰类名、模板占位符、
 `AKIAIOSFODNN7EXAMPLE`、ISO 时间戳、CSS 颜色值、服务账号 token 的文件路径、无关键词的 SHA-256 摘要。
 每一条对应熵值层里一个独立的拒绝原因，也各自是一个回归测试。
