@@ -399,6 +399,19 @@ lacks one, and `tests/test_prefilter.py` will tell you if your pattern defeats t
 
 Chinese documentation: [README.zh-CN.md](README.zh-CN.md).
 
+## Contributors
+
+Thanks to everyone who has contributed code, tests and docs:
+
+<a href="https://github.com/CodeByPeace"><img src="https://github.com/CodeByPeace.png?size=60" width="60" height="60" alt="CodeByPeace" /></a>
+<a href="https://github.com/st0rm-bless3d"><img src="https://github.com/st0rm-bless3d.png?size=60" width="60" height="60" alt="st0rm-bless3d" /></a>
+<a href="https://github.com/Triple-S-Sajjad"><img src="https://github.com/Triple-S-Sajjad.png?size=60" width="60" height="60" alt="Triple-S-Sajjad" /></a>
+<a href="https://github.com/cnYui"><img src="https://github.com/cnYui.png?size=60" width="60" height="60" alt="cnYui" /></a>
+
+Want to join them? Pick any open
+[`good first issue`](https://github.com/Jeffy123-zhu/logspecter/labels/good%20first%20issue) and
+comment on it to claim it.
+
 ## License
 
 Apache-2.0.
