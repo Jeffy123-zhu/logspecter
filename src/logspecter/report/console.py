@@ -237,7 +237,16 @@ def _detail_panel(group: FindingGroup, *, show_secrets: bool) -> Panel:
     if finding.matched_context:
         grid.add_row("证据片段", Text(finding.matched_context, style="dim"))
     if finding.cloud_context:
-        for key in ("schema", "actor", "action", "resource", "region", "source_ip", "timestamp"):
+        for key in (
+            "schema",
+            "actor",
+            "action",
+            "resource",
+            "region",
+            "source_ip",
+            "timestamp",
+            "encoding",
+        ):
             value = finding.cloud_context.get(key)
             if value:
                 grid.add_row(key, Text(str(value)))

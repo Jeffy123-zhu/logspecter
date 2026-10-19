@@ -36,6 +36,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from logspecter import cloud, entropy, structured
+from logspecter.decode import decode_base64_text
 from logspecter.findings import Confidence, Finding
 from logspecter.prefilter import LiteralPrefilter, ScreenTree, trie_pattern
 from logspecter.rules import CompiledRule, RuleSet
@@ -43,6 +44,7 @@ from logspecter.rules import CompiledRule, RuleSet
 __all__ = ["ChunkScan", "ScanCounters", "ScanOptions", "Scanner"]
 
 _NEWLINE = b"\n"
+_RE_B64_CANDIDATE = re.compile(rb"(?<![A-Za-z0-9+/_-])[A-Za-z0-9+/_-]{16,}={0,2}")
 
 
 @dataclass(slots=True, frozen=True)
@@ -78,6 +80,10 @@ class ScanOptions:
     #: 默认取 32 → 只建 3 个节点：既保留「整块无任何可疑字面量时一次排除全部规则」
     #: 的快速通道，又几乎不引入额外成本。
     screen_leaf_size: int = 32
+    #: 是否解码单层 Base64 / Base64URL 可打印文本并扫描其中的凭据。
+    decode_base64: bool = False
+    #: 单层 Base64 解码的字节上限。
+    max_decode_bytes: int = 64 * 1024
 
 
 @dataclass(slots=True)
@@ -277,6 +283,10 @@ class Scanner:
         if self.options.structured and self._json_entries and self._key_regex is not None:
             self._scan_structured(data, lowered, hits, source, base_offset, chunk_index)
 
+        # ---- 步骤 3b：单层 Base64 可打印文本解码扫描 ----
+        if self.options.decode_base64 and self._text_entries:
+            self._scan_decoded_base64(data, lowered, hits, source, base_offset, chunk_index)
+
         if not hits:
             return result
 
@@ -424,11 +434,12 @@ class Scanner:
         structured_hit: bool,
         value_offset: int = 0,
         haystack: bytes | None = None,
+        encoding: str | None = None,
     ) -> None:
         """在 ``span`` 范围内执行规则正则并做全部校验。
 
-        ``haystack`` 为 ``None`` 时在原始数据块上匹配；结构化路径会传入解出来的
-        JSON 值（此时 ``span`` 指该值内部的范围，``value_offset`` 用于定位所在行）。
+        ``haystack`` 为 ``None`` 时在原始数据块上匹配；结构化路径或单层解码路径会传入
+        解出来的字节串（此时 ``span`` 指该值内部的范围，``value_offset`` 用于定位所在行及外层列）。
         """
         rule = entry.compiled.rule
         options = self.options
@@ -452,7 +463,7 @@ class Scanner:
 
             keyword_hit = False
             if entry.keywords:
-                # 关键词始终在「原始行」范围内查找，这样结构化命中也能借到行上下文。
+                # 关键词先在原始行查找，解码载荷中也可在自身范围内查找邻近关键词。
                 line_start, line_end = (
                     (start, end) if haystack is None else self._line_span(lowered, value_offset)
                 )
@@ -465,6 +476,15 @@ class Scanner:
                     window=rule.keyword_window,
                     keywords=entry.keywords,
                 )
+                if not keyword_hit and haystack is not None:
+                    keyword_hit = _keyword_nearby(
+                        haystack.lower(),
+                        start,
+                        end,
+                        center=offset,
+                        window=rule.keyword_window,
+                        keywords=entry.keywords,
+                    )
                 if rule.require_keyword and not keyword_hit:
                     counters.suppressed_by_keyword[rule.id] += 1
                     counters.suppressed_reasons["missing-required-keyword"] += 1
@@ -502,7 +522,9 @@ class Scanner:
             else:
                 line_start, line_end = self._line_span(data, value_offset)
                 absolute = base_offset + line_start
-                column = offset + 1
+                column = (value_offset - line_start + 1) if encoding is not None else (offset + 1)
+
+            cloud_ctx = {"encoding": encoding} if encoding is not None else {}
 
             hits.append(
                 _Hit(
@@ -517,6 +539,7 @@ class Scanner:
                         column=column,
                         json_path=json_path,
                         matched_context=self._snippet(target, offset, len(secret_bytes)),
+                        cloud_context=cloud_ctx,
                         entropy=verdict.entropy,
                         normalized_entropy=verdict.normalized,
                         charset=verdict.charset,
@@ -593,6 +616,60 @@ class Scanner:
                         haystack=value,
                     )
 
+    # ------------------------------------------------------------------ 单层 Base64 解码
+
+    def _scan_decoded_base64(
+        self,
+        data: bytes,
+        lowered: bytes,
+        hits: list[_Hit],
+        source: str,
+        base_offset: int,
+        chunk_index: int,
+    ) -> None:
+        """查找块内 Base64 / Base64URL 可打印文本候选串，单层解码后跑文本规则。"""
+        total = len(data)
+        max_line = self.options.max_line_bytes
+        max_decode = self.options.max_decode_bytes
+        screen_chunks = self.options.screen_chunks
+        all_indices = list(range(len(self._text_entries)))
+
+        for match in _RE_B64_CANDIDATE.finditer(data):
+            token_start = match.start()
+            _line_start, line_end = _line_bounds(data, token_start, total, max_line)
+            if token_start >= line_end:
+                continue
+            token_end = min(match.end(), line_end)
+            if token_end - token_start < 16:
+                continue
+
+            decoded = decode_base64_text(data[token_start:token_end], max_bytes=max_decode)
+            if decoded is None:
+                continue
+
+            lowered_decoded = decoded.lower()
+            active = self._screen.select(lowered_decoded) if screen_chunks else all_indices
+            for index in active:
+                entry = self._text_entries[index]
+                hay = lowered_decoded if entry.prefilter.ignore_case else decoded
+                if not entry.prefilter.present(hay):
+                    continue
+                self._apply_rule(
+                    entry,
+                    data=data,
+                    lowered=lowered,
+                    span=(0, len(decoded)),
+                    hits=hits,
+                    source=source,
+                    base_offset=base_offset,
+                    chunk_index=chunk_index,
+                    json_path=None,
+                    structured_hit=False,
+                    value_offset=token_start,
+                    haystack=decoded,
+                    encoding="base64",
+                )
+
     # ------------------------------------------------------------------ 收尾
 
     def _finalize(self, data: bytes, hits: list[_Hit]) -> list[Finding]:
@@ -623,7 +700,7 @@ class Scanner:
                 payload = data[line_start : group[0].line_end]
                 record = structured.try_parse(payload)
                 if record is not None:
-                    self._enrich(line_findings, record)
+                    self._enrich(line_findings, record, payload)
 
             if self.options.collapse_overlaps and len(line_findings) > 1:
                 line_findings = _collapse_overlaps(line_findings)
@@ -632,7 +709,7 @@ class Scanner:
 
         return findings
 
-    def _enrich(self, findings: list[Finding], record: Any) -> None:
+    def _enrich(self, findings: list[Finding], record: Any, payload: bytes = b"") -> None:
         context = cloud.extract_context(record)
         needs_path = any(f.json_path is None for f in findings)
         path_map: list[tuple[str, str]] = []
@@ -649,11 +726,20 @@ class Scanner:
 
         for finding in findings:
             if context:
-                finding.cloud_context = dict(context)
+                finding.cloud_context = {**context, **finding.cloud_context}
             if finding.json_path is None:
+                needle = finding.secret
+                if (
+                    finding.cloud_context.get("encoding") == "base64"
+                    and payload
+                    and finding.column > 0
+                ):
+                    outer_match = _RE_B64_CANDIDATE.match(payload, finding.column - 1)
+                    if outer_match is not None:
+                        needle = _decode(outer_match.group(0))
                 best: str | None = None
                 for value, path in path_map:
-                    if finding.secret in value and (best is None or len(path) > len(best)):
+                    if needle in value and (best is None or len(path) > len(best)):
                         best = path
                 if best:
                     finding.json_path = best
@@ -713,7 +799,12 @@ def _collapse_overlaps(findings: list[Finding]) -> list[Finding]:
     """
     ordered = sorted(
         findings,
-        key=lambda f: (f.severity.rank, -f.confidence_score, len(f.secret)),
+        key=lambda f: (
+            0 if f.cloud_context.get("encoding") else 1,
+            f.severity.rank,
+            -f.confidence_score,
+            len(f.secret),
+        ),
     )
     kept: list[Finding] = []
     for finding in ordered:
@@ -721,7 +812,17 @@ def _collapse_overlaps(findings: list[Finding]) -> list[Finding]:
         for candidate in kept:
             if candidate.json_path != finding.json_path:
                 continue
-            if finding.secret in candidate.secret or candidate.secret in finding.secret:
+            same_outer_token = (
+                candidate.column > 0
+                and candidate.column == finding.column
+                and bool(candidate.cloud_context.get("encoding"))
+                and not finding.cloud_context.get("encoding")
+            )
+            if (
+                finding.secret in candidate.secret
+                or candidate.secret in finding.secret
+                or same_outer_token
+            ):
                 absorbed_by = candidate
                 break
         if absorbed_by is None:

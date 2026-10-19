@@ -198,6 +198,7 @@ Exit codes: `0` clean, `1` findings at or above `--fail-on` (default `high`), `2
 | `--aggressive` | enable noisy entropy-only rules (recall over precision) |
 | `--pack aws --tag github` | narrow the rule set |
 | `--no-structured` | skip JSON parsing entirely; fastest, loses cloud context |
+| `--decode-base64` | decode a single layer of base64/base64url printable text and scan it |
 | `--show-secrets` | print plaintext (off by default — reports are redacted) |
 | `--stats` | throughput, memory, and the full noise-reduction breakdown |
 
