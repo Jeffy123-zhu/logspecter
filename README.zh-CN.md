@@ -332,6 +332,19 @@ logspecter selftest
 新增规则需要在 `src/logspecter/samples.py` 里补一条正样本 —— 缺少正样本的规则会导致测试失败；
 如果你的正则让预筛失效，`tests/test_prefilter.py` 会直接指出来。
 
+## 贡献者
+
+感谢每一位贡献代码、测试和文档的朋友：
+
+<a href="https://github.com/CodeByPeace"><img src="https://github.com/CodeByPeace.png?size=60" width="60" height="60" alt="CodeByPeace" /></a>
+<a href="https://github.com/st0rm-bless3d"><img src="https://github.com/st0rm-bless3d.png?size=60" width="60" height="60" alt="st0rm-bless3d" /></a>
+<a href="https://github.com/Triple-S-Sajjad"><img src="https://github.com/Triple-S-Sajjad.png?size=60" width="60" height="60" alt="Triple-S-Sajjad" /></a>
+<a href="https://github.com/cnYui"><img src="https://github.com/cnYui.png?size=60" width="60" height="60" alt="cnYui" /></a>
+
+想加入他们？挑一个
+[`good first issue`](https://github.com/Jeffy123-zhu/logspecter/labels/good%20first%20issue)，
+在 issue 下评论认领即可。
+
 ## 许可
 
 Apache-2.0。
