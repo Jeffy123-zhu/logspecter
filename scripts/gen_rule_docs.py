@@ -2,7 +2,7 @@
 """Generate the rule catalog (Markdown) from the built-in rule packs.
 
 Usage:
-    python scripts/gen_rule_docs.py --out docs/rules
+    python scripts/gen_rule_docs.py --out docs/rule-catalog
 """
 
 from __future__ import annotations
@@ -113,7 +113,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", required=True, type=Path, help="output directory")
     args = parser.parse_args(argv)
 
-    # NOTE: verify this call works; the issue says include_builtin=True.
     rules = _sorted_rules(load_ruleset(include_builtin=True))
 
     args.out.mkdir(parents=True, exist_ok=True)
