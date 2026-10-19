@@ -36,8 +36,10 @@ from rich.progress import (
 )
 
 from logspecter import __version__, engine, ingest, report
+from logspecter import redact as redact_mod
 from logspecter.baseline import Baseline, BaselineError
 from logspecter.findings import Severity
+from logspecter.ingest import SourceKind
 from logspecter.rules import RuleSyntaxError, load_ruleset
 from logspecter.scanner import ScanOptions
 from logspecter.structured import JSON_BACKEND
@@ -475,6 +477,222 @@ def _exit_code(result: engine.ScanResult, fail_on: FailOn) -> int:
         if group.representative.severity.rank <= threshold.rank:
             return EXIT_FINDINGS
     return EXIT_OK
+
+
+# --------------------------------------------------------------------------------------
+# redact
+# --------------------------------------------------------------------------------------
+
+
+@app.command(help="将日志文件中的敏感凭据脱敏并写入输出目录（当前仅支持普通文件）。")
+def redact(
+    paths: list[str] | None = typer.Argument(
+        None,
+        metavar="INPUT...",
+        help="待脱敏的日志文件或目录（暂不支持压缩包与标准输入）。",
+    ),
+    output_dir: Path = typer.Option(
+        ...,
+        "--output-dir",
+        "-o",
+        help="脱敏后文件的输出目录。",
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="允许覆盖输出目录中已存在的同名文件（仍拒绝直接覆盖输入源文件）。",
+    ),
+    rule_paths: list[str] | None = typer.Option(
+        None, "--rules", "-r", help="附加 YAML 规则文件或目录（可重复，同 id 覆盖内置规则）。"
+    ),
+    builtin_rules: bool = typer.Option(
+        True, "--builtin-rules/--no-builtin-rules", help="是否加载内置规则包。"
+    ),
+    include_rule: list[str] | None = typer.Option(
+        None, "--include-rule", help="仅启用这些规则（支持 id / pack:名 / tag:名 / 通配符）。"
+    ),
+    exclude_rule: list[str] | None = typer.Option(None, "--exclude-rule", help="排除这些规则。"),
+    enable_rule: list[str] | None = typer.Option(
+        None, "--enable-rule", help="额外启用默认关闭的规则。"
+    ),
+    pack: list[str] | None = typer.Option(None, "--pack", help="仅使用指定规则包。"),
+    tag: list[str] | None = typer.Option(None, "--tag", help="仅使用带指定标签的规则。"),
+    aggressive: bool = typer.Option(
+        False, "--aggressive", help="启用全部规则（含默认关闭的纯高熵规则），召回优先。"
+    ),
+    min_severity: FailOn | None = typer.Option(
+        None, "--min-severity", help="只加载不低于该等级的规则。"
+    ),
+    min_entropy: float | None = typer.Option(
+        None, "--min-entropy", help="全局覆盖香农熵门限（bit/char），仅影响启用熵校验的规则。"
+    ),
+    min_confidence: float = typer.Option(
+        0.0, "--min-confidence", min=0.0, max=1.0, help="丢弃低于该置信度的命中。"
+    ),
+    workers: int | None = typer.Option(
+        None, "--workers", "-j", help=f"并发进程数（默认自动，本机 {cpu_count()} 核）；1 为单进程。"
+    ),
+    chunk_size: str = typer.Option(
+        "4MB", "--chunk-size", help="分块大小，决定内存上界与并行粒度（如 8MB / 512k）。"
+    ),
+    reader: ReaderMode = typer.Option(
+        ReaderMode.MMAP, "--reader", help="可 seek 文件的读取方式：mmap 或 buffered。"
+    ),
+    structured: bool = typer.Option(
+        True,
+        "--structured/--no-structured",
+        help="是否启用云原生 Schema 感知（JSON 路径 + 上下文）。",
+    ),
+    nested_json: bool = typer.Option(
+        True, "--nested-json/--no-nested-json", help="是否递归解析内嵌的 JSON 字符串。"
+    ),
+    max_line_bytes: str = typer.Option("256k", "--max-line-bytes", help="单行扫描字节上限。"),
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="不打印进度信息。"),
+    progress_bar: bool = typer.Option(True, "--progress/--no-progress", help="是否显示进度条。"),
+    recursive: bool = typer.Option(True, "--recursive/--no-recursive", help="目录是否递归遍历。"),
+    all_files: bool = typer.Option(
+        False, "--all-files", help="遍历目录时纳入所有文件（默认只看常见日志后缀）。"
+    ),
+) -> None:
+    console = Console(highlight=False)
+
+    try:
+        chunk_bytes = parse_size(chunk_size)
+        line_limit = parse_size(max_line_bytes)
+    except ValueError as exc:
+        _fail(console, str(exc))
+        return
+
+    raw_paths = list(paths or [])
+    if not raw_paths:
+        _fail(
+            console,
+            "未指定输入文件（暂不支持标准输入，compressed and stream inputs are not supported yet）",
+        )
+        return
+
+    for raw in raw_paths:
+        kind = ingest.classify(raw)
+        if kind is not SourceKind.SEEKABLE:
+            _fail(
+                console,
+                f"暂不支持压缩包或流式输入 (compressed and stream inputs are not supported yet): {raw}",
+            )
+            return
+
+    try:
+        sources = ingest.resolve_inputs(raw_paths, recursive=recursive, follow_all=all_files)
+    except FileNotFoundError as exc:
+        _fail(console, str(exc))
+        return
+    if not sources:
+        _fail(console, "输入路径下没有匹配到任何文件（可尝试 --all-files）")
+        return
+
+    for src in sources:
+        if ingest.classify(src) is not SourceKind.SEEKABLE:
+            _fail(
+                console,
+                f"暂不支持压缩包或流式输入 (compressed and stream inputs are not supported yet): {src}",
+            )
+            return
+
+    out_dir = Path(output_dir).expanduser()
+    if out_dir.exists() and not out_dir.is_dir():
+        _fail(console, f"输出路径不是目录 (output-dir is not a directory): {out_dir}")
+        return
+
+    input_resolved = {Path(src).expanduser().resolve() for src in sources}
+    planned_targets: set[Path] = set()
+    plan: list[tuple[str, Path]] = []
+
+    for src in sources:
+        src_path = Path(src).expanduser()
+        dest_path = out_dir / src_path.name
+        dest_resolved = dest_path.resolve()
+        if dest_resolved in input_resolved:
+            _fail(
+                console,
+                f"拒绝覆盖输入源文件 (refusing to overwrite input file): {dest_path}",
+            )
+            return
+        if dest_resolved in planned_targets:
+            _fail(
+                console,
+                f"多个输入文件映射到同一输出文件名 (output filename collision): {dest_path}",
+            )
+            return
+        if dest_path.exists() and not force:
+            _fail(
+                console,
+                f"输出文件已存在，请加 --force 覆盖 (output file already exists; use --force to overwrite): {dest_path}",
+            )
+            return
+        planned_targets.add(dest_resolved)
+        plan.append((src, dest_path))
+
+    severity_floor = (
+        None if min_severity in (None, FailOn.NONE) else Severity.parse(min_severity.value)  # type: ignore[union-attr]
+    )
+    ruleset = _build_ruleset(
+        console,
+        rule_paths=list(rule_paths or []),
+        builtin=builtin_rules,
+        include=list(include_rule or []),
+        exclude=list(exclude_rule or []),
+        enable=list(enable_rule or []),
+        packs=list(pack or []),
+        tags=list(tag or []),
+        min_severity=severity_floor,
+        aggressive=aggressive,
+        min_entropy=min_entropy,
+    )
+
+    options = ScanOptions(
+        structured=structured,
+        nested_json=nested_json,
+        max_line_bytes=line_limit,
+        min_confidence=min_confidence,
+    )
+    config = engine.ScanConfig(
+        ruleset=ruleset,
+        options=options,
+        chunk_size=chunk_bytes,
+        reader=reader.value,
+    )
+
+    show_progress = progress_bar and not quiet and console.is_terminal
+    result = _run_scan(console, sources, config, workers, show_progress)
+
+    secrets_by_source: dict[str, set[str]] = {src: set() for src in sources}
+    for group in result.groups:
+        secret = group.representative.secret
+        if not secret:
+            continue
+        for src in group.sources:
+            if src in secrets_by_source:
+                secrets_by_source[src].add(secret)
+
+    try:
+        out_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        _fail(console, f"无法创建输出目录: {exc}")
+        return
+
+    total_replacements = 0
+    for src, dest_path in plan:
+        try:
+            count = redact_mod.redact_file(src, dest_path, secrets_by_source.get(src, set()))
+        except OSError as exc:
+            _fail(console, f"写入脱敏文件失败 ({dest_path}): {exc}")
+            return
+        total_replacements += count
+        console.print(f"  {escape(str(dest_path))} — 替换 {count} 处 ({count} replacements)")
+
+    console.print(
+        f"[green]脱敏完成[/] 已写入 {len(plan)} 个文件，共替换 {total_replacements} 处 "
+        f"({len(plan)} files written, {total_replacements} replacements)"
+    )
 
 
 # --------------------------------------------------------------------------------------
