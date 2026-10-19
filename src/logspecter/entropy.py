@@ -26,6 +26,8 @@ import re
 from collections import Counter
 from dataclasses import dataclass, field
 
+from logspecter.decode import is_printable_text
+
 __all__ = [
     "CHARSET_SIZES",
     "EntropyGate",
@@ -360,8 +362,7 @@ def looks_like_encoded_text(value: str) -> bool:
     if raw[:1] in (b"{", b"[") or raw[:5] == b"<?xml":
         return True
 
-    printable = sum(1 for b in raw if 0x20 <= b <= 0x7E or b in (0x09, 0x0A, 0x0D))
-    return printable / len(raw) >= 0.90
+    return is_printable_text(raw)
 
 
 def _contains_placeholder(value: str) -> bool:

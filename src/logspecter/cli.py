@@ -253,6 +253,11 @@ def scan(
     nested_json: bool = typer.Option(
         True, "--nested-json/--no-nested-json", help="是否递归解析内嵌的 JSON 字符串。"
     ),
+    decode_base64: bool = typer.Option(
+        False,
+        "--decode-base64/--no-decode-base64",
+        help="解码单层 Base64 / Base64URL 可打印文本并扫描其中的凭据。",
+    ),
     max_line_bytes: str = typer.Option("256k", "--max-line-bytes", help="单行扫描字节上限。"),
     output_format: OutputFormat = typer.Option(
         OutputFormat.TABLE, "--format", "-f", help="输出格式。"
@@ -343,6 +348,7 @@ def scan(
         nested_json=nested_json,
         max_line_bytes=line_limit,
         min_confidence=min_confidence,
+        decode_base64=decode_base64,
     )
     config = engine.ScanConfig(
         ruleset=ruleset,
@@ -676,6 +682,11 @@ def benchmark(
     secret_ratio: float = typer.Option(
         0.0002, "--secret-ratio", min=0.0, max=1.0, help="植入真实密钥的行比例。"
     ),
+    decode_base64: bool = typer.Option(
+        False,
+        "--decode-base64/--no-decode-base64",
+        help="压测时同时开启单层 Base64 解码扫描。",
+    ),
 ) -> None:
     import tempfile
 
@@ -714,7 +725,7 @@ def benchmark(
         ruleset = load_ruleset()
         config = engine.ScanConfig(
             ruleset=ruleset,
-            options=ScanOptions(),
+            options=ScanOptions(decode_base64=decode_base64),
             chunk_size=chunk_bytes,
             reader=reader.value,
         )

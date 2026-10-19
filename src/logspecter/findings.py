@@ -113,6 +113,10 @@ class Finding:
     local_line: int = 0
 
     @property
+    def context(self) -> dict[str, str]:
+        return self.cloud_context
+
+    @property
     def fingerprint(self) -> str:
         return _fingerprint(self.rule_id, self.secret)
 
