@@ -269,6 +269,10 @@ def _build_positive_samples() -> tuple[tuple[str, str], ...]:
             f'{{"userIdentity":{{"principalId":"AROA{g(_UPPER_NUM, 16, rng)}"}}}}',
         ),
         ("digitalocean-access-token", f"DIGITALOCEAN_TOKEN=dop_v1_{g(_LOWER_HEX, 64, rng)}"),
+        (
+            "postman-api-key",
+            f"X-Api-Key: PMAK-{g(_LOWER_HEX, 24, rng)}-{g(_LOWER_HEX, 34, rng)}",
+        ),
     )
 
 

@@ -339,3 +339,15 @@ rules:
     tags: [digitalocean, cloud]
     references:
     - https://docs.digitalocean.com/notes/2022/api-token-format
+
+  - id: postman-api-key
+    name: Postman API Key
+    severity: high
+    confidence: high
+    pattern: '\b(PMAK-[a-f0-9]{24}-[a-f0-9]{34})\b'
+    capture: 1
+    entropy:
+      enabled: false
+    tags: [postman, api]
+    references:
+      - https://learning.postman.com/docs/developer/postman-api/authentication/
