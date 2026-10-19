@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import random
 import re
 from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
@@ -23,6 +24,7 @@ import yaml
 
 from logspecter.entropy import EntropyGate
 from logspecter.findings import Confidence, Severity
+from logspecter.samples import expand_placeholders
 
 __all__ = [
     "BUILTIN_RULES_DIR",
@@ -57,7 +59,9 @@ _ALLOWED_RULE_KEYS = {
     "tags",
     "enabled",
     "references",
+    "examples",
 }
+_ALLOWED_EXAMPLE_KEYS = {"match", "no_match"}
 
 
 class RuleSyntaxError(ValueError):
@@ -71,6 +75,43 @@ def _gate_to_dict(gate: EntropyGate) -> dict[str, Any]:
         value = getattr(gate, name)
         out[name] = sorted(value) if isinstance(value, frozenset) else value
     return out
+
+
+def _parse_examples(
+    raw: Any, *, rule_id: str, origin: str
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """校验并提取规则内联 ``examples`` 字段。"""
+    if not isinstance(raw, dict):
+        raise RuleSyntaxError(f"{origin}: 规则 {rule_id!r} 的 examples 必须是映射")
+    unknown = set(raw) - _ALLOWED_EXAMPLE_KEYS
+    if unknown:
+        raise RuleSyntaxError(
+            f"{origin}: 规则 {rule_id!r} 的 examples 含未知字段 {sorted(unknown)}"
+        )
+
+    rng = random.Random(0)
+    out: dict[str, tuple[str, ...]] = {"match": (), "no_match": ()}
+    for key in ("match", "no_match"):
+        if key not in raw:
+            continue
+        items = raw[key]
+        if not isinstance(items, (list, tuple)):
+            raise RuleSyntaxError(f"{origin}: 规则 {rule_id!r} 的 examples.{key} 必须是字符串列表")
+        validated: list[str] = []
+        for item in items:
+            if not isinstance(item, str) or not item.strip():
+                raise RuleSyntaxError(
+                    f"{origin}: 规则 {rule_id!r} 的 examples.{key} 条目必须是非空字符串"
+                )
+            try:
+                expand_placeholders(item, rng)
+            except ValueError as exc:
+                raise RuleSyntaxError(
+                    f"{origin}: 规则 {rule_id!r} 的 examples.{key} 占位符无效: {exc}"
+                ) from exc
+            validated.append(item)
+        out[key] = tuple(validated)
+    return out["match"], out["no_match"]
 
 
 @dataclass(slots=True, frozen=True)
@@ -102,6 +143,8 @@ class Rule:
     #: 默认是否启用。噪声较大的通用规则默认关闭，由 ``--aggressive`` 打开。
     enabled: bool = True
     references: tuple[str, ...] = ()
+    examples_match: tuple[str, ...] = ()
+    examples_no_match: tuple[str, ...] = ()
     #: 所属规则包（来源文件名），便于报告与 ``rules list`` 分组。
     pack: str = "custom"
 
@@ -126,6 +169,10 @@ class Rule:
             "tags": list(self.tags),
             "enabled": self.enabled,
             "references": list(self.references),
+            "examples": {
+                "match": list(self.examples_match),
+                "no_match": list(self.examples_no_match),
+            },
             "pack": self.pack,
         }
 
@@ -171,6 +218,13 @@ class Rule:
         if isinstance(capture, bool) or not isinstance(capture, (int, str)):
             raise RuleSyntaxError(f"{origin}: 规则 {rule_id!r} 的 capture 必须是整数或组名")
 
+        examples_match: tuple[str, ...] = ()
+        examples_no_match: tuple[str, ...] = ()
+        if "examples" in data:
+            examples_match, examples_no_match = _parse_examples(
+                data["examples"], rule_id=rule_id, origin=origin
+            )
+
         return cls(
             id=rule_id,
             name=str(data["name"]),
@@ -190,6 +244,8 @@ class Rule:
             tags=tuple(str(t) for t in data.get("tags", ())),
             enabled=bool(data.get("enabled", True)),
             references=tuple(str(r) for r in data.get("references", ())),
+            examples_match=examples_match,
+            examples_no_match=examples_no_match,
             pack=str(data.get("pack", pack)),
         )
 

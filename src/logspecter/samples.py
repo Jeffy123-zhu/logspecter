@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import random
+import re
 import string
 from pathlib import Path
 
@@ -23,6 +24,7 @@ from logspecter import entropy
 __all__ = [
     "NEGATIVE_SAMPLES",
     "POSITIVE_SAMPLES",
+    "expand_placeholders",
     "make_secret",
     "write_synthetic_log",
 ]
@@ -33,6 +35,15 @@ _B64URL = string.ascii_letters + string.digits + "-_"
 _ALNUM = string.ascii_letters + string.digits
 _UPPER_NUM = string.ascii_uppercase + string.digits
 _LOWER_HEX = "0123456789abcdef"
+
+_PLACEHOLDER_ALPHABETS: dict[str, str] = {
+    "hex": _LOWER_HEX,
+    "alnum": _ALNUM,
+    "upper_num": _UPPER_NUM,
+    "b64": _B64,
+    "b64url": _B64URL,
+}
+_PLACEHOLDER_RE = re.compile(r"\{([A-Za-z0-9_-]+):([^{}]*)\}")
 
 
 def make_secret(alphabet: str, length: int, rng: random.Random) -> str:
@@ -59,6 +70,28 @@ def make_secret(alphabet: str, length: int, rng: random.Random) -> str:
     raise RuntimeError(  # pragma: no cover
         f"无法生成满足约束的样本密钥 (alphabet={len(alphabet)}, length={length})"
     )
+
+
+def expand_placeholders(text: str, rng: random.Random) -> str:
+    """展开样本模板中的 ``{kind:N}`` 占位符。
+
+    支持 ``{hex:N}``、``{alnum:N}``、``{upper_num:N}``、``{b64:N}``、``{b64url:N}``。
+    未知的占位符名称或非正整数长度会抛出 :class:`ValueError`。
+    """
+
+    def _replace(match: re.Match[str]) -> str:
+        name, raw_length = match.group(1), match.group(2)
+        alphabet = _PLACEHOLDER_ALPHABETS.get(name)
+        if alphabet is None:
+            raise ValueError(
+                f"未知的占位符类型 {name!r}（来自 {match.group(0)!r}），"
+                f"支持: {', '.join(sorted(_PLACEHOLDER_ALPHABETS))}"
+            )
+        if not raw_length.isascii() or not raw_length.isdigit() or int(raw_length) <= 0:
+            raise ValueError(f"占位符 {match.group(0)!r} 的长度必须是正整数，实际为 {raw_length!r}")
+        return make_secret(alphabet, int(raw_length), rng)
+
+    return _PLACEHOLDER_RE.sub(_replace, text)
 
 
 def _build_positive_samples() -> tuple[tuple[str, str], ...]:
