@@ -66,6 +66,63 @@ class TestRuleFromDict:
         assert rule.severity is Severity.HIGH
         assert rule.confidence is Confidence.MEDIUM
         assert rule.enabled is True
+        assert rule.examples_match == ()
+        assert rule.examples_no_match == ()
+
+    def test_rule_with_examples_loads_and_round_trips(self, tmp_path) -> None:
+        yaml_file = tmp_path / "postman.yaml"
+        yaml_file.write_text(
+            "version: 1\n"
+            "pack: custom\n"
+            "rules:\n"
+            "  - id: postman-api-key\n"
+            "    name: Postman API Key\n"
+            "    pattern: '\\b(PMAK-[a-f0-9]{24}-[a-f0-9]{34})\\b'\n"
+            "    capture: 1\n"
+            "    examples:\n"
+            "      match: ['POSTMAN_API_KEY=PMAK-{hex:24}-{hex:34}']\n"
+            "      no_match: ['PMAK-short']\n",
+            encoding="utf-8",
+        )
+        loaded = load_ruleset([yaml_file], include_builtin=False)
+        rule = next(iter(loaded))
+        assert rule.examples_match == ("POSTMAN_API_KEY=PMAK-{hex:24}-{hex:34}",)
+        assert rule.examples_no_match == ("PMAK-short",)
+
+        restored = Rule.from_dict(rule.to_dict())
+        assert restored == rule
+        assert restored.examples_match == rule.examples_match
+        assert restored.examples_no_match == rule.examples_no_match
+
+    @pytest.mark.parametrize(
+        ("examples_payload", "expected_msg"),
+        [
+            ("not-a-dict", "examples 必须是映射"),
+            ({"match": "POSTMAN_API_KEY=PMAK-123"}, "examples.match 必须是字符串列表"),
+            ({"no_match": "PMAK-short"}, "examples.no_match 必须是字符串列表"),
+            ({"bogus": ["abc"]}, "未知字段"),
+            ({"match": [""]}, "非空字符串"),
+            ({"no_match": ["   "]}, "非空字符串"),
+            ({"match": [123]}, "非空字符串"),
+            ({"match": ["key={unknown_kind:16}"]}, "占位符无效"),
+            ({"match": ["key={hex:0}"]}, "占位符无效"),
+        ],
+    )
+    def test_invalid_examples_rejected_with_rule_id_and_origin(
+        self, examples_payload: object, expected_msg: str
+    ) -> None:
+        payload = {
+            "id": "bad-example-rule",
+            "name": "Bad Example Rule",
+            "pattern": "abc",
+            "examples": examples_payload,
+        }
+        with pytest.raises(RuleSyntaxError) as exc_info:
+            Rule.from_dict(payload, origin="custom_rules.yaml")
+        msg = str(exc_info.value)
+        assert "bad-example-rule" in msg
+        assert "custom_rules.yaml" in msg
+        assert expected_msg in msg
 
     @pytest.mark.parametrize(
         ("payload", "message"),
@@ -89,6 +146,86 @@ class TestRuleFromDict:
         for rule in ruleset:
             restored = Rule.from_dict(rule.to_dict())
             assert restored == rule
+
+
+class TestExpandPlaceholders:
+    @pytest.mark.parametrize(
+        ("placeholder", "length", "allowed_chars"),
+        [
+            ("{hex:24}", 24, set("0123456789abcdef")),
+            (
+                "{alnum:32}",
+                32,
+                set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"),
+            ),
+            ("{upper_num:16}", 16, set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")),
+            (
+                "{b64:40}",
+                40,
+                set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+/"),
+            ),
+            (
+                "{b64url:35}",
+                35,
+                set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"),
+            ),
+        ],
+    )
+    def test_length_and_alphabet_per_placeholder(
+        self, placeholder: str, length: int, allowed_chars: set[str]
+    ) -> None:
+        import random
+
+        from logspecter.samples import expand_placeholders
+
+        expanded = expand_placeholders(f"prefix-{placeholder}-suffix", random.Random(42))
+        assert expanded.startswith("prefix-")
+        assert expanded.endswith("-suffix")
+        token = expanded[len("prefix-") : -len("-suffix")]
+        assert len(token) == length
+        assert set(token) <= allowed_chars
+
+    def test_same_seed_produces_same_output(self) -> None:
+        import random
+
+        from logspecter.samples import expand_placeholders
+
+        template = "POSTMAN_API_KEY=PMAK-{hex:24}-{hex:34} extra={b64url:28}"
+        first = expand_placeholders(template, random.Random(20260901))
+        second = expand_placeholders(template, random.Random(20260901))
+        different = expand_placeholders(template, random.Random(20260902))
+        assert first == second
+        assert first != different
+
+    def test_text_without_placeholders_unchanged(self) -> None:
+        import random
+
+        from logspecter.samples import expand_placeholders
+
+        rng = random.Random(7)
+        state_before = rng.getstate()
+        raw = '{"msg": "PMAK-short", "env": "${AWS_SECRET_ACCESS_KEY}"}'
+        assert expand_placeholders(raw, rng) == raw
+        assert rng.getstate() == state_before
+
+    @pytest.mark.parametrize(
+        "bad_template",
+        [
+            "token={unknown:16}",
+            "token={upper-num:16}",
+            "token={hex:0}",
+            "token={hex:-5}",
+            "token={hex:abc}",
+            "token={hex:}",
+        ],
+    )
+    def test_invalid_placeholder_raises_value_error(self, bad_template: str) -> None:
+        import random
+
+        from logspecter.samples import expand_placeholders
+
+        with pytest.raises(ValueError):
+            expand_placeholders(bad_template, random.Random(1))
 
 
 class TestRuleSetSelection:

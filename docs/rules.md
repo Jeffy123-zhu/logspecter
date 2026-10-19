@@ -49,6 +49,7 @@ rules:
 | `tags` | list[str] | `[]` | 标签，用于 `--tag` 筛选与报告分组 |
 | `enabled` | bool | `true` | 是否默认启用（噪声大的规则建议设 `false`） |
 | `references` | list[str] | `[]` | 参考链接 |
+| `examples` | mapping | `{}` | 内联正/负样本（`match` / `no_match`），支持 `{hex:N}` 等占位符 |
 
 ## `entropy` 门限
 
@@ -129,6 +130,30 @@ $ logspecter rules show generic-high-entropy-token
 ```
 
 对于「值本身就是密钥、没有任何前后文特征」的场景（`{"credential": "..."}`），这是唯一可靠的写法。
+
+## `examples`：内联正/负样本与占位符
+
+每条规则可以通过 `examples` 字段附带内联的正样本（`match`）与负样本（`no_match`），每个子键都是非空字符串列表：
+
+```yaml
+  - id: postman-api-key
+    name: Postman API Key
+    pattern: '\b(PMAK-[a-f0-9]{24}-[a-f0-9]{34})\b'
+    capture: 1
+    examples:
+      match:
+        - 'POSTMAN_API_KEY=PMAK-{hex:24}-{hex:34}'
+      no_match:
+        - 'PMAK-short'
+```
+
+为避免在仓库中出现看起来像真实凭据的长串，样本字符串支持通过 `samples.expand_placeholders(text, rng)` 展开以下固定种子占位符（规则加载时会校验占位符名称与长度）：
+
+- `{hex:N}`：`N` 位小写十六进制（`0-9a-f`）
+- `{alnum:N}`：`N` 位字母数字（`A-Za-z0-9`）
+- `{upper_num:N}`：`N` 位大写字母与数字（`A-Z0-9`）
+- `{b64:N}`：`N` 位标准 Base64 字符（`A-Za-z0-9+/`）
+- `{b64url:N}`：`N` 位 URL 安全 Base64 字符（`A-Za-z0-9-_`）
 
 ## 重叠折叠
 
