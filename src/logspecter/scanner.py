@@ -44,7 +44,7 @@ from logspecter.rules import CompiledRule, RuleSet
 __all__ = ["ChunkScan", "ScanCounters", "ScanOptions", "Scanner"]
 
 _NEWLINE = b"\n"
-_RE_B64_CANDIDATE = re.compile(rb"(?<![A-Za-z0-9+/_-])[CDIJ-Zabcdef][A-Za-z0-9+/_-]{15,}={0,2}")
+_RE_B64_CANDIDATE = re.compile(rb"(?<![A-Za-z0-9+/_-])[A-Za-z0-9+/_-]{16,}={0,2}")
 
 
 @dataclass(slots=True, frozen=True)
@@ -700,7 +700,7 @@ class Scanner:
                 payload = data[line_start : group[0].line_end]
                 record = structured.try_parse(payload)
                 if record is not None:
-                    self._enrich(line_findings, record)
+                    self._enrich(line_findings, record, payload)
 
             if self.options.collapse_overlaps and len(line_findings) > 1:
                 line_findings = _collapse_overlaps(line_findings)
@@ -709,7 +709,7 @@ class Scanner:
 
         return findings
 
-    def _enrich(self, findings: list[Finding], record: Any) -> None:
+    def _enrich(self, findings: list[Finding], record: Any, payload: bytes = b"") -> None:
         context = cloud.extract_context(record)
         needs_path = any(f.json_path is None for f in findings)
         path_map: list[tuple[str, str]] = []
@@ -728,9 +728,18 @@ class Scanner:
             if context:
                 finding.cloud_context = {**context, **finding.cloud_context}
             if finding.json_path is None:
+                needle = finding.secret
+                if (
+                    finding.cloud_context.get("encoding") == "base64"
+                    and payload
+                    and finding.column > 0
+                ):
+                    outer_match = _RE_B64_CANDIDATE.match(payload, finding.column - 1)
+                    if outer_match is not None:
+                        needle = _decode(outer_match.group(0))
                 best: str | None = None
                 for value, path in path_map:
-                    if finding.secret in value and (best is None or len(path) > len(best)):
+                    if needle in value and (best is None or len(path) > len(best)):
                         best = path
                 if best:
                     finding.json_path = best
@@ -790,7 +799,12 @@ def _collapse_overlaps(findings: list[Finding]) -> list[Finding]:
     """
     ordered = sorted(
         findings,
-        key=lambda f: (f.severity.rank, -f.confidence_score, len(f.secret)),
+        key=lambda f: (
+            0 if f.cloud_context.get("encoding") else 1,
+            f.severity.rank,
+            -f.confidence_score,
+            len(f.secret),
+        ),
     )
     kept: list[Finding] = []
     for finding in ordered:
@@ -801,7 +815,8 @@ def _collapse_overlaps(findings: list[Finding]) -> list[Finding]:
             same_outer_token = (
                 candidate.column > 0
                 and candidate.column == finding.column
-                and candidate.cloud_context.get("encoding") != finding.cloud_context.get("encoding")
+                and bool(candidate.cloud_context.get("encoding"))
+                and not finding.cloud_context.get("encoding")
             )
             if (
                 finding.secret in candidate.secret

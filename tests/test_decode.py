@@ -92,6 +92,57 @@ class TestScannerDecodeBase64:
         assert findings[0].column == len(b"GET /callback?state=") + 1
         assert findings[0].context["encoding"] == "base64"
 
+    def test_basic_auth_with_lower_ranked_decoded_rule_prefers_decoded_finding(
+        self, ruleset: RuleSet
+    ) -> None:
+        stripe_test = "sk_test_" + make_secret(string.ascii_letters + string.digits, 24, _RNG)
+        b64_token = base64.b64encode(f"{stripe_test}:".encode())
+        line = b"Authorization: Basic " + b64_token
+
+        scanner = Scanner(ruleset, ScanOptions(decode_base64=True))
+        findings = scanner.scan_line(line, source="auth.log")
+        assert len(findings) == 1
+        assert findings[0].rule_id == "stripe-test-secret-key"
+        assert findings[0].secret == stripe_test
+        assert findings[0].column == len(b"Authorization: Basic ") + 1
+        assert findings[0].context["encoding"] == "base64"
+        assert "also-matched:authorization-header-basic" in findings[0].evidence
+
+    def test_json_string_leaf_resolves_json_path_and_collapses_outer_basic(
+        self, ruleset: RuleSet
+    ) -> None:
+        b64_token = base64.b64encode(f"aws_secret_access_key={AWS_SECRET}".encode()).decode()
+        line = json.dumps({"authorization": f"Basic {b64_token}"}).encode()
+
+        scanner = Scanner(ruleset, ScanOptions(decode_base64=True))
+        findings = scanner.scan_line(line, source="structured.log")
+        assert len(findings) == 1
+        assert findings[0].rule_id == "aws-secret-access-key"
+        assert findings[0].secret == AWS_SECRET
+        assert findings[0].json_path == "authorization"
+        assert findings[0].context["encoding"] == "base64"
+
+    def test_multiple_distinct_secrets_in_single_base64_blob_all_preserved(
+        self, ruleset: RuleSet
+    ) -> None:
+        inner = f"aws_access_key_id={AWS_KEY}\naws_secret_access_key={AWS_SECRET}".encode()
+        b64_token = base64.b64encode(inner)
+        line = b"Authorization: Basic " + b64_token
+
+        scanner = Scanner(ruleset, ScanOptions(decode_base64=True))
+        findings = scanner.scan_line(line, source="multi.log")
+        assert {f.rule_id for f in findings} == {"aws-access-key-id", "aws-secret-access-key"}
+        assert all(f.context["encoding"] == "base64" for f in findings)
+
+    def test_payload_starting_with_ansi_escape_or_utf8_bom_detected(self, ruleset: RuleSet) -> None:
+        scanner = Scanner(ruleset, ScanOptions(decode_base64=True))
+        for prefix in (b"\x1b[31m", b"\xef\xbb\xbf"):
+            b64_token = base64.b64encode(prefix + f"aws_secret_access_key={AWS_SECRET}".encode())
+            findings = scanner.scan_line(b"payload=" + b64_token, source="ansi.log")
+            assert len(findings) == 1
+            assert findings[0].rule_id == "aws-secret-access-key"
+            assert findings[0].context["encoding"] == "base64"
+
     def test_single_layer_only_no_recursion(self, ruleset: RuleSet) -> None:
         layer1 = base64.b64encode(f"aws_secret_access_key={AWS_SECRET}".encode())
         layer2 = base64.b64encode(b"nested=" + layer1)

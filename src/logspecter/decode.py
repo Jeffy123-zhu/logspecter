@@ -44,7 +44,9 @@ def decode_base64_text(token: bytes, *, max_bytes: int = 64 * 1024) -> bytes | N
     if not _RE_B64_TOKEN.match(token):
         return None
 
-    normalized = stripped.translate(_URLSAFE_TRANS)
+    normalized = (
+        stripped.translate(_URLSAFE_TRANS) if (b"-" in stripped or b"_" in stripped) else stripped
+    )
     rem = len(normalized) % 4
     if rem:
         normalized += b"=" * (4 - rem)
