@@ -22,3 +22,5 @@ scratch/
 # 但示例日志需要入库
 !examples/*.log
 !examples/*.jsonl
+out_rules/
+docs/rule-catalog/
