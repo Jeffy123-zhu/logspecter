@@ -5,6 +5,8 @@
 [![Python Version](https://img.shields.io/pypi/pyversions/logspecter.svg)](https://pypi.org/project/logspecter/)
 [![CI Status](https://github.com/Jeffy123-zhu/logspecter/actions/workflows/ci.yml/badge.svg)](https://github.com/Jeffy123-zhu/logspecter/actions)
 [![License](https://img.shields.io/github/license/Jeffy123-zhu/logspecter.svg)](https://github.com/Jeffy123-zhu/logspecter/blob/main/LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/Jeffy123-zhu/logspecter?style=social)](https://github.com/Jeffy123-zhu/logspecter/stargazers)
+[![PyPI Downloads](https://pepy.tech/badge/logspecter/month)](https://pepy.tech/project/logspecter)
 
 **Schema-aware secret scanner for cloud logs.** Regex finds candidates; Shannon entropy and a
 heuristic layer decide whether they are real keys; a JSON-structure layer tells you *who* leaked
