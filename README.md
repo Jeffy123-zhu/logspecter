@@ -25,17 +25,17 @@ Not "a suspicious string on line 800". The actual identity, the actual API call,
 
 ### Real output
 
-`logspecter scan examples/app.log` on the bundled sample (run on Windows, first 17 lines; the CLI UI is currently in Chinese):
+`logspecter scan examples/app.log` on the bundled sample (run on Windows, first 17 lines):
 
 ```text
-LogSpecter v0.1.0 · 61 条规则 · JSON 后端 orjson · 分块 4.0 MiB
-┌──────────────────────── LogSpecter v0.1.0 扫描摘要 ─────────────────────────┐
-│ 唯一泄露  4 条（总出现 4 次）                                               │
-│ 等级分布   critical × 2   high × 2                                          │
-│   扫描量  1 个来源 / 1 个块 / 2.6 KiB / 18 行                               │
-│     性能  0.02s · 0.2 MiB/s · 1 进程                                        │
-│ 内存峰值  单进程最高 32.6 MiB（全部进程合计 32.6 MiB）                      │
-└─────────────────────────────────────────────────────────────────────────────┘
+LogSpecter v0.1.0 · 61 rules · JSON backend orjson · chunk size 4.0 MiB
+┌───────────────────────── LogSpecter v0.1.0 Scan Summary ────────────────────────────┐
+│ Unique leaks     4 findings (4 total occurrences)                                   │
+│ Severity         critical × 2   high × 2                                            │
+│ Scanned          1 source / 1 chunk / 2.6 KiB / 18 lines                           │
+│ Performance      0.02s · 0.2 MiB/s · 1 worker                                       │
+│ Peak memory      32.6 MiB per process (32.6 MiB total across all processes)        │
+└─────────────────────────────────────────────────────────────────────────────────────┘
  CRITICAL  private-key-pem-header  ×1  conf 1.00  H 3.38
   detail
   examples\app.log:13  ----********---- (len=31)
@@ -339,7 +339,7 @@ print(result.stats.throughput_mb_s, result.stats.peak_rss_max_process)
 `logspecter selftest` runs the bundled corpus with **every** rule enabled:
 
 ```
-检出率 66/66  ·  负样本零误报 25/25
+Recall 66/66  ·  Zero false positives on negatives 25/25
 ```
 
 66 positive samples (one per rule, generated from a fixed seed — no real credentials in the repo)
@@ -352,7 +352,7 @@ regression test.
 `--stats` reports the funnel on your own data, so the numbers are yours rather than ours:
 
 ```
-降噪  正则候选 1,245 → 熵值/上下文层拦下 16 条（1.3%）
+Noise reduction  1,245 regex candidates → 16 rejected by entropy/context (1.3%)
 ```
 
 ## Design notes
