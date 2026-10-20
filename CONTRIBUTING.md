@@ -178,3 +178,10 @@ approach can be agreed before you write code.
 
 By contributing you agree that your contributions are licensed under the
 [Apache-2.0 License](LICENSE).
+
+### Generating the rule catalog
+
+The rule catalog pages are generated from the built-in rule packs and are not committed.
+Run this before `mkdocs build`:
+
+    python scripts/gen_rule_docs.py --out docs/rule-catalog
