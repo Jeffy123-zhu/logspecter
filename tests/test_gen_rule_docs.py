@@ -23,9 +23,7 @@ def test_every_rule_in_index_and_exactly_one_pack_page(tmp_path):
     _generate(tmp_path)
     index = (tmp_path / "index.md").read_text(encoding="utf-8")
     pack_pages = {
-        p.name: p.read_text(encoding="utf-8")
-        for p in tmp_path.glob("*.md")
-        if p.name != "index.md"
+        p.name: p.read_text(encoding="utf-8") for p in tmp_path.glob("*.md") if p.name != "index.md"
     }
     for rule in _builtin_rules():
         assert f"[{rule.id}](" in index
