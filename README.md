@@ -13,8 +13,8 @@ heuristic layer decide whether they are real keys; a JSON-structure layer tells 
 ```
 $ logspecter scan cloudtrail-2026-08-30.json.gz --stats
 
-  CRITICAL   openai-api-key   AWS IAM User (Alice) 鈫?action: AssumeRole
-                              鈫?requestParameters.headers.Authorization
+  CRITICAL   openai-api-key   AWS IAM User (Alice) → action: AssumeRole
+                              → requestParameters.headers.Authorization
                               cloudtrail-2026-08-30.json.gz:81421 @byte 24118904
                               sk-p********kAyS (len=64)   conf 1.00 / H 5.19
 ```
@@ -28,16 +28,23 @@ Not "a suspicious string on line 800". The actual identity, the actual API call,
 `logspecter scan examples/app.log` on the bundled sample (run on Windows, first 17 lines; the CLI UI is currently in Chinese):
 
 ```text
-LogSpecter v0.1.0 路 61 鏉¤鍒?路 JSON 鍚庣 orjson 路 鍒嗗潡 4.0 MiB
-鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ LogSpecter v0.1.0 鎵弿鎽樿 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?鈹?鍞竴娉勯湶  4 鏉★紙鎬诲嚭鐜?4 娆★級                                               鈹?鈹?绛夌骇鍒嗗竷   critical 脳 2   high 脳 2                                          鈹?鈹?  鎵弿閲? 1 涓潵婧?/ 1 涓潡 / 2.6 KiB / 18 琛?                              鈹?鈹?    鎬ц兘  0.02s 路 0.2 MiB/s 路 1 杩涚▼                                        鈹?鈹?鍐呭瓨宄板€? 鍗曡繘绋嬫渶楂?32.6 MiB锛堝叏閮ㄨ繘绋嬪悎璁?32.6 MiB锛?                     鈹?鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? CRITICAL  private-key-pem-header  脳1  conf 1.00  H 3.38
+LogSpecter v0.1.0 · 61 条规则 · JSON 后端 orjson · 分块 4.0 MiB
+┌──────────────────────── LogSpecter v0.1.0 扫描摘要 ─────────────────────────┐
+│ 唯一泄露  4 条（总出现 4 次）                                               │
+│ 等级分布   critical × 2   high × 2                                          │
+│   扫描量  1 个来源 / 1 个块 / 2.6 KiB / 18 行                               │
+│     性能  0.02s · 0.2 MiB/s · 1 进程                                        │
+│ 内存峰值  单进程最高 32.6 MiB（全部进程合计 32.6 MiB）                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+ CRITICAL  private-key-pem-header  ×1  conf 1.00  H 3.38
   detail
   examples\app.log:13  ----********---- (len=31)
 
- CRITICAL  stripe-live-secret-key  脳1  conf 1.00  H 4.86
+ CRITICAL  stripe-live-secret-key  ×1  conf 1.00  H 4.86
   examples\app.log:6:91
   examples\app.log:6  sk_l********aJ3s (len=33)
 
- HIGH  authorization-header-basic  脳1  conf 1.00  H 4.50
+ HIGH  authorization-header-basic  ×1  conf 1.00  H 4.50
 ```
 
 ## Why another secret scanner
@@ -53,10 +60,10 @@ base64-encoded JSON blob in your logs. LogSpecter runs a second stage on every c
 | Check | What it kills |
 | --- | --- |
 | Shannon entropy + charset-normalised entropy | low-diversity strings that merely *look* long |
-| Charset coverage (unique chars 梅 *achievable* unique chars) | `aaaa鈥, `ababab鈥, and it does **not** penalise 64-char hex hashes |
+| Charset coverage (unique chars ÷ *achievable* unique chars) | `aaaa…`, `ababab…`, and it does **not** penalise 64-char hex hashes |
 | Repeat / sequential runs | `xxxxxxxx`, `abcdefgh`, `987654321` |
 | Natural-language likeness (bigram + vowel ratio) | `SpringBootApplicationConfigurationLoader` |
-| Base64 decode-back | strings that decode to readable text or JSON 鈥?encoded *data*, not keys |
+| Base64 decode-back | strings that decode to readable text or JSON — encoded *data*, not keys |
 | Placeholder & vendor-doc detection | `AKIAIOSFODNN7EXAMPLE`, `changeme`, `<your-api-key>`, `${VAR}` |
 | Keyword proximity | a 32-char hex blob only counts near `key`/`secret`/`hmac` |
 
@@ -77,10 +84,10 @@ passwords while relying on the `scheme://user:pass@host` shape for precision.
 LogSpecter parses records with [orjson](https://github.com/ijl/orjson) (Rust-backed) and
 recognises the schema it is looking at:
 
-* AWS CloudTrail 鈥?IAM identity, `eventName`, region, source IP, account
-* GCP Cloud Logging 鈥?`principalEmail`, `methodName`, resource, project
-* Kubernetes audit 鈥?user, verb, `objectRef`
-* Azure Activity Log 鈥?identity claims, `operationName`, result
+* AWS CloudTrail — IAM identity, `eventName`, region, source IP, account
+* GCP Cloud Logging — `principalEmail`, `methodName`, resource, project
+* Kubernetes audit — user, verb, `objectRef`
+* Azure Activity Log — identity claims, `operationName`, result
 * Elastic Common Schema, Logback / Log4j2 JSON (including MDC)
 
 Nested JSON-inside-a-JSON-string is expanded too, because `requestParameters` and MDC fields are
@@ -96,12 +103,12 @@ size, never of file size:
 
 | Scan | Wall time | Throughput | Main RSS | Peak worker RSS |
 | --- | --- | --- | --- | --- |
-| 256 MiB, 1 worker | 20.7 s | 12.4 MiB/s | 45 MiB | 鈥?|
+| 256 MiB, 1 worker | 20.7 s | 12.4 MiB/s | 45 MiB | — |
 | 256 MiB, 8 workers | 5.1 s | 49.9 MiB/s | 42 MiB | 34 MiB |
 | 1 GiB, 8 workers | 18.6 s | 55.0 MiB/s | 43 MiB | 35 MiB |
 
 Same memory for 1 GiB as for 256 MiB. Measured with `GetProcessMemoryInfo` /
-`/proc/self/status` and reported by `--stats` 鈥?not a claim, an output field.
+`/proc/self/status` and reported by `--stats` — not a claim, an output field.
 Numbers from `logspecter benchmark` on 8 cores / Windows / CPython 3.13, scanning a synthetic mix
 of CloudTrail records, application logs, and high-entropy-but-harmless noise. Reproduce with
 `logspecter benchmark --size 1GB -j 8`; pure-Python throughput is CPU-bound, so expect it to track
@@ -117,17 +124,18 @@ changes took it to 12.4 MiB/s per core:
    offsets *are* file offsets, and `\b`/`\w` get predictable ASCII semantics.
 
 2. **Occurrence-driven scanning instead of line iteration.** Each rule's regex AST is statically
-   analysed for literals that *must* appear in any match (`\b((?:AKIA|ASIA)[A-Z0-9]{16})\b` 鈫?   `AKIA|ASIA`). Those literals are located with `bytes.find` (~3.7 GiB/s) and the regex runs only
+   analysed for literals that *must* appear in any match (`\b((?:AKIA|ASIA)[A-Z0-9]{16})\b` →
+   `AKIA|ASIA`). Those literals are located with `bytes.find` (~3.7 GiB/s) and the regex runs only
    on the lines that contain them. A monotonic cursor per literal means an absent literal is
-   scanned once, not once per line 鈥?getting this wrong cost a 50脳 slowdown before it was fixed.
+   scanned once, not once per line — getting this wrong cost a 50× slowdown before it was fixed.
 
 3. **Anchored matching.** The analyser also computes how many bytes of the match may precede the
-   literal. `_live_` in `(?:sk|rk)_live_鈥 is always at offset 2, so instead of `search()`-ing a
+   literal. `_live_` in `(?:sk|rk)_live_…` is always at offset 2, so instead of `search()`-ing a
    whole line the scanner tries `match()` at one exact position. This is what removed most of the
    remaining cost: "literal present but regex does not match" is the single most common case in
    real logs (every CloudTrail S3 record contains `"key":`).
 
-Literals are merged into prefix-tree regexes (`key|keystore|kms` 鈫?`k(?:ey(?:store)?|ms)`) so
+Literals are merged into prefix-tree regexes (`key|keystore|kms` → `k(?:ey(?:store)?|ms)`) so
 CPython's `INFO` first-character-set optimisation applies: an 8 MiB buffer with no match at all is
 rejected in 2.5 ms. That gives the fast path for clean or binary data.
 
@@ -184,14 +192,14 @@ Exit codes: `0` clean, `1` findings at or above `--fail-on` (default `high`), `2
 | Flag | Effect |
 | --- | --- |
 | `-j, --workers N` | processes; default `min(8, cpu)`, `1` disables multiprocessing |
-| `--chunk-size 4MB` | the memory knob 鈥?resident data 鈮?2 脳 chunk 脳 workers |
+| `--chunk-size 4MB` | the memory knob — resident data ≈ 2 × chunk × workers |
 | `--min-entropy 4.5` | raise the global entropy floor (precision over recall) |
 | `--min-confidence 0.8` | drop low-confidence findings |
 | `--aggressive` | enable noisy entropy-only rules (recall over precision) |
 | `--pack aws --tag github` | narrow the rule set |
 | `--no-structured` | skip JSON parsing entirely; fastest, loses cloud context |
 | `--decode-base64` | decode a single layer of base64/base64url printable text and scan it |
-| `--show-secrets` | print plaintext (off by default 鈥?reports are redacted) |
+| `--show-secrets` | print plaintext (off by default — reports are redacted) |
 | `--stats` | throughput, memory, and the full noise-reduction breakdown |
 
 ### Redacting logs
@@ -254,18 +262,18 @@ repos:
 
 ## How it compares
 
-Only differences we could verify are filled in; `鈥擿 means "not checked", not "no".
+Only differences we could verify are filled in; `—` means "not checked", not "no".
 
 | | LogSpecter | gitleaks | trufflehog | detect-secrets |
 |---|---|---|---|---|
 | Primary target | log files / streams (`.gz`, stdin) | git repos, files | git repos, files, many sources | files in a repo |
-| JSON path + identity context per finding (e.g. CloudTrail user 鈫?field) | yes | 鈥?| 鈥?| 鈥?|
-| Shannon-entropy validation | yes | yes | 鈥?| yes |
-| Flat-memory streaming of multi-GB logs | yes | 鈥?| 鈥?| 鈥?|
-| Live credential verification | no | no | yes | 鈥?|
-| Git history scanning | no | yes | yes | 鈥?|
-| SARIF output | yes | yes | 鈥?| 鈥?|
-| Baseline / suppress known findings | yes | yes | 鈥?| yes |
+| JSON path + identity context per finding (e.g. CloudTrail user → field) | yes | — | — | — |
+| Shannon-entropy validation | yes | yes | — | yes |
+| Flat-memory streaming of multi-GB logs | yes | — | — | — |
+| Live credential verification | no | no | yes | — |
+| Git history scanning | no | yes | yes | — |
+| SARIF output | yes | yes | — | — |
+| Baseline / suppress known findings | yes | yes | — | yes |
 | Language | Python | Go | Go | Python |
 
 ## Custom rules
@@ -287,9 +295,9 @@ rules:
     tags: [acme, internal]
     entropy:
       min_entropy: 4.4
-      min_normalized: 0.72        # entropy 梅 log2(charset size)
+      min_normalized: 0.72        # entropy ÷ log2(charset size)
       min_length: 40
-      min_charset_coverage: 0.6   # unique chars 梅 achievable unique chars
+      min_charset_coverage: 0.6   # unique chars ÷ achievable unique chars
       reject_encoded_text: true
 
   - id: acme-mdc-secret
@@ -321,7 +329,7 @@ result = engine.scan(["/var/log/app.log"], config, workers=4)
 
 for group in result.groups:
     f = group.representative
-    print(f.severity.value, f.rule_id, f.context_summary(), f"脳{group.occurrences}")
+    print(f.severity.value, f.rule_id, f.context_summary(), f"×{group.occurrences}")
 
 print(result.stats.throughput_mb_s, result.stats.peak_rss_max_process)
 ```
@@ -331,10 +339,10 @@ print(result.stats.throughput_mb_s, result.stats.peak_rss_max_process)
 `logspecter selftest` runs the bundled corpus with **every** rule enabled:
 
 ```
-妫€鍑虹巼 66/66  路  璐熸牱鏈浂璇姤 25/25
+检出率 66/66  ·  负样本零误报 25/25
 ```
 
-66 positive samples (one per rule, generated from a fixed seed 鈥?no real credentials in the repo)
+66 positive samples (one per rule, generated from a fixed seed — no real credentials in the repo)
 and 25 negative samples drawn from the shapes that actually fool regex-only scanners: UUID request
 IDs, git SHAs, base64-encoded JSON cursors, camel-case class names, template placeholders,
 `AKIAIOSFODNN7EXAMPLE`, ISO timestamps, CSS colours, service-account token paths, and unkeyed
@@ -344,23 +352,24 @@ regression test.
 `--stats` reports the funnel on your own data, so the numbers are yours rather than ours:
 
 ```
-闄嶅櫔  姝ｅ垯鍊欓€?1,245 鈫?鐔靛€?涓婁笅鏂囧眰鎷︿笅 16 鏉★紙1.3%锛?```
+降噪  正则候选 1,245 → 熵值/上下文层拦下 16 条（1.3%）
+```
 
 ## Design notes
 
 ```
 logspecter/
-鈹溾攢鈹€ ingest.py      byte-range planning, mmap window reads, gz/bz2/xz/stdin streaming
-鈹溾攢鈹€ engine.py      chunk scheduling, bounded-window multiprocessing, line-number prefix sums,
-鈹?                 fingerprint aggregation
-鈹溾攢鈹€ prefilter.py   regex AST 鈫?mandatory literals + prefix widths, trie merging, screen tree
-鈹溾攢鈹€ scanner.py     the detection pipeline
-鈹溾攢鈹€ entropy.py     Shannon entropy and the heuristic gate
-鈹溾攢鈹€ rules.py       YAML loading, validation, bytes compilation
-鈹溾攢鈹€ cloud.py       cloud log schema detection and context extraction
-鈹溾攢鈹€ structured.py  orjson parsing and JSON flattening
-鈹溾攢鈹€ report/        Rich console, JSON, CSV, SARIF
-鈹斺攢鈹€ rules/*.yaml   built-in rule packs
+├── ingest.py      byte-range planning, mmap window reads, gz/bz2/xz/stdin streaming
+├── engine.py      chunk scheduling, bounded-window multiprocessing, line-number prefix sums,
+│                  fingerprint aggregation
+├── prefilter.py   regex AST → mandatory literals + prefix widths, trie merging, screen tree
+├── scanner.py     the detection pipeline
+├── entropy.py     Shannon entropy and the heuristic gate
+├── rules.py       YAML loading, validation, bytes compilation
+├── cloud.py       cloud log schema detection and context extraction
+├── structured.py  orjson parsing and JSON flattening
+├── report/        Rich console, JSON, CSV, SARIF
+└── rules/*.yaml   built-in rule packs
 ```
 
 Two details that are easy to get wrong and are worth knowing about:
@@ -370,7 +379,7 @@ a chunk-local line number plus that chunk's total line count. The parent compute
 over chunk line counts and rewrites the findings. No pre-pass over the file, exact `file:line`.
 
 **Report readability.** One leaked key repeated 50 000 times is one finding, not 50 000 rows.
-Findings are aggregated by `SHA-256(rule_id 鈥?secret)[:16]` with an occurrence count and a few
+Findings are aggregated by `SHA-256(rule_id ‖ secret)[:16]` with an occurrence count and a few
 sample locations. Overlapping rules on the same value collapse to the most specific one
 (`openai-api-key` beats `authorization-header-bearer` beats `sensitive-json-key-value`), with the
 others preserved in the evidence chain.
